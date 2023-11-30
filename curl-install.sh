@@ -1,5 +1,5 @@
 #!/bin/bash
-
+SCRIPTHOME_DIR=archi
 # Checking if is running in Repo Folder
 if [[ "$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]')" =~ ^scripts$ ]]; then
     echo "You are running this in ${SCRIPTHOME_DIR} Folder."
