@@ -19,9 +19,9 @@ echo "Script dir is $SCRIPT_DIR cd into it"
 cd "$SCRIPT_DIR"
 
 echo "Launching start up..."
-(bash $SCRIPTS_DIR/startup.sh) 2>&1 | log_to_file
+(bash $SCRIPTS_DIR/startup.sh) #2>&1 | log_to_file
 source $CONFIGS_DIR/setup.conf
-(bash $SCRIPTS_DIR/0-preinstall.sh) 2>&1 | log_to_file
+(bash $SCRIPTS_DIR/0-preinstall.sh) #2>&1 | log_to_file
 
 # now modify actual installation
 #(arch-chroot /mnt "$SCRIPTS_DIR/1-setup.sh") 2>&1 | log_to_file
