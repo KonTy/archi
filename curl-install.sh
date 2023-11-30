@@ -18,4 +18,4 @@ echo "Executing ${SCRIPTHOME_DIR} Script"
 
 cd $HOME/${SCRIPTHOME_DIR}
 
-exec ./arch_install.sh
+exec ./archi.sh
