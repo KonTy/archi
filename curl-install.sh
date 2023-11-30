@@ -7,7 +7,7 @@ if [[ "$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]')" =~ ^scripts$ ]]; then
 fi
 
 # Installing git
-
+cd $HOME
 echo "Installing git."
 pacman -Sy --noconfirm --needed git glibc
 
