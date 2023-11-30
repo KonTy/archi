@@ -12,7 +12,7 @@ echo "Installing git."
 pacman -Sy --noconfirm --needed git glibc
 
 echo "Cloning the ${SCRIPTHOME_DIR} Project"
-git clone https://github.com/christitustech/ArchTitus
+git clone https://github.com/KonTy/archi
 
 echo "Executing ${SCRIPTHOME_DIR} Script"
 
