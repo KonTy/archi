@@ -2,6 +2,7 @@
 
 CONFIG_FILE=$CONFIGS_DIR/setup.conf
 if [ ! -f $CONFIG_FILE ]; then # check if file exists
+    echo "Adding config file"
     touch -f $CONFIG_FILE # create file if not exists
 fi
 
@@ -315,26 +316,23 @@ installtype () {
 # More features in future
 # language (){}
 
-# Starting functions
+echo "Starting functions"
 background_checks
-clear
 userinfo
-clear
 desktopenv
-# Set fixed options that installation uses if user choses server installation
+
+echo "Set fixed options that installation uses if user choses server installation"
 set_option INSTALL_TYPE MINIMAL
 set_option AUR_HELPER NONE
 if [[ ! $desktop_env == server ]]; then
-  clear
   aurhelper
-  clear
   installtype
 fi
-clear
+echo "Running diskpart"
 diskpart
-clear
+echo "Running filesystem"
 filesystem
-clear
+echo "Running timezone"
 timezone
-clear
+echo "Running Keymap"
 keymap
