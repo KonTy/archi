@@ -14,8 +14,8 @@ pacman -Sy --noconfirm --needed git glibc
 echo "Cloning the ${SCRIPTHOME_DIR} Project"
 git clone https://github.com/KonTy/archi
 
-echo "Change directory to $HOME/$SCRIPTHOME_DIR"
-cd "$HOME/$SCRIPTHOME_DIR"
+echo "Change directory to $(HOME)/$(SCRIPTHOME_DIR)"
+cd "$(HOME)/$(SCRIPTHOME_DIR)"
 
-echo "Current directory is $pwd Executing ${SCRIPTHOME_DIR} Script"
+echo "Current directory is $(pwd) Executing ${SCRIPTHOME_DIR} Script"
 exec ./archi.sh
