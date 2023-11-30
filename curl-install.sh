@@ -16,6 +16,6 @@ git clone https://github.com/KonTy/archi
 
 echo "Executing ${SCRIPTHOME_DIR} Script"
 
-cd $HOME/${SCRIPTHOME_DIR}
+cd "$HOME/$SCRIPT_DIR"
 
 exec ./archi.sh
