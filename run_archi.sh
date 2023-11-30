@@ -24,11 +24,11 @@ source $CONFIGS_DIR/setup.conf
 (bash $SCRIPTS_DIR/0-preinstall.sh) #2>&1 | log_to_file
 
 # now modify actual installation
-#(arch-chroot /mnt "$SCRIPTS_DIR/1-setup.sh") 2>&1 | log_to_file
+(arch-chroot /mnt "$SCRIPTS_DIR/1-setup.sh") #2>&1 | log_to_file
 
-#if [["$DESKTOP_ENV" != "server"]]; then
-#  (arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- $SCRIPTS_DIR/2-user.sh ) |& log_to_file
-#fi
+if [["$DESKTOP_ENV" != "server"]]; then
+ (arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- $SCRIPTS_DIR/2-user.sh ) |& log_to_file
+fi
 
-#(arch-chroot /mnt "$SCRIPTS_DIR/3-post-setup.sh") |& log_to_file
+(arch-chroot /mnt "$SCRIPTS_DIR/3-post-setup.sh") |& log_to_file
 #cp -v *.log /mnt/home/$USERNAME
