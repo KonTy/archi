@@ -7,14 +7,18 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"
 SCRIPTHOME_DIR="${SCRIPT_DIR##*/}"
 set +a
 
+echo "All variables are set"
+
 log_to_file() {
     local log_file="all-scripts.log"
 
     awk -v script="$(basename "$0")" '{ print strftime("[%Y-%m-%d %H:%M:%S]"), "[" script "]:", $0 }' >> "$log_file"
 }
 
+echo "Script dir is $SCRIPT_DIR cd into it"
 cd "$SCRIPT_DIR"
 
+echo "Launching start up..."
 (bash $SCRIPTS_DIR/startup.sh) 2>&1 | log_to_file
 source $CONFIGS_DIR/setup.conf
 (bash $SCRIPTS_DIR/0-preinstall.sh) 2>&1 | log_to_file
