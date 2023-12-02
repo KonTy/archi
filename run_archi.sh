@@ -27,7 +27,7 @@ source $CONFIGS_DIR/setup.conf
 (arch-chroot /mnt "$SCRIPTS_DIR/1-setup.sh") #2>&1 | log_to_file
 
 echo "Desktop Environment is $DESKTOP_ENV"
-if [["$DESKTOP_ENV" != "server"]]; then
+if [[ "$DESKTOP_ENV" != "server" ]]; then
  (arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- $SCRIPTS_DIR/2-user.sh ) #|& log_to_file
 fi
 
