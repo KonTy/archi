@@ -199,57 +199,26 @@ filesystemOld () {
 # @description This function will handle file systems. At this movement we are handling only
 # btrfs and ext4. Others will be added in future.
 filesystem () {
-    cmd=(dialog --output-fd 1 --separate-output --extra-button --extra-label 'Select All' --cancel-label 'Select None' --checklist 'Choose the tools to install:' 0 0 0)
-    load-dialog () {
-        options=(
-                    1 'btrfs' off
-                    2 'ext4' on
-                    3 'luks' off
-        )
-        choices=$("${cmd[@]}" "${options[@]}")
-    }
-    load-dialog
-    exit_code="$?"
-    for choice in $choices
-    do
+
+    options=(1 "btrfs" 2 "ext4" 3 "luks")
+    choice=$(dialog --menu "Choose Filesystem:" 10 30 4 "${options[@]}" 2>&1 >/dev/tty)
+
+    case $? in
+    0)
         case $choice in
-            1) echo 'First Option';;
-            2) echo 'Second Option';;
-            3) echo 'Third Option';;
+        0) set_option FS btrfs ;;
+        1) set_option FS ext4 ;;
+        2)
+            set_password "LUKS_PASSWORD"
+            set_option FS luks
+            ;;
+        3) exit ;;
+        *) echo "Wrong option please select again"; filesystem ;;
         esac
-    done
-pause
-
-
-
-
-
-
-
-
-
-
-
-
-    # options=("btrfs" "ext4" "luks" "exit")
-    # choice=$(dialog --menu "Choose Filesystem:" 10 30 4 "${options[@]}" 2>&1 >/dev/tty)
-
-    # case $? in
-    # 0)
-    #     case $choice in
-    #     0) set_option FS btrfs ;;
-    #     1) set_option FS ext4 ;;
-    #     2)
-    #         set_password "LUKS_PASSWORD"
-    #         set_option FS luks
-    #         ;;
-    #     3) exit ;;
-    #     *) echo "Wrong option please select again"; filesystem ;;
-    #     esac
-    #     ;;
-    # 1) echo "Canceled." ;;
-    # *) echo "Error or Escape key pressed. Exiting." ;;
-    # esac
+        ;;
+    1) echo "Canceled." ;;
+    *) echo "Error or Escape key pressed. Exiting." ;;
+    esac
 }
 
 
