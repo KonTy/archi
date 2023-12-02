@@ -20,13 +20,13 @@ echo "Launching start up..."
 bash $SCRIPTS_DIR/startup.sh 2>&1 | tee -a "$output_file"
 source $CONFIGS_DIR/setup.conf
 bash $SCRIPTS_DIR/0-preinstall.sh 2>&1 | tee -a "$output_file"
-arch-chroot /mnt "$SCRIPTS_DIR/1-setup.sh" 2>&1 | tee -a "$output_file"
+( arch-chroot /mnt $SCRIPTS_DIR/1-setup.sh ) 2>&1 | tee -a "$output_file"
 
 echo "Desktop Environment is $DESKTOP_ENV"
 if [[ "$DESKTOP_ENV" != "server" ]]; then
-    (arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- $SCRIPTS_DIR/2-user.sh) 2>&1 | tee -a "$output_file"
+    ( arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- $SCRIPTS_DIR/2-user.sh ) 2>&1 | tee -a "$output_file"
 fi
-(arch-chroot /mnt "$SCRIPTS_DIR/3-post-setup.sh") 2>&1 | tee -a "$output_file"
+( arch-chroot /mnt $SCRIPTS_DIR/3-post-setup.sh ) 2>&1 | tee -a "$output_file"
 
 
 
