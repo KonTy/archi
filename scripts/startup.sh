@@ -176,7 +176,7 @@ select_option() {
 }
 # @description This function will handle file systems. At this movement we are handling only
 # btrfs and ext4. Others will be added in future.
-filesystemOld () {
+filesystem () {
     echo -ne "
     Please Select your file system for both boot and root
     "
@@ -191,38 +191,9 @@ filesystemOld () {
         set_option FS luks
         ;;
     3) exit ;;
-    *) echo "Wrong option please select again"; filesystemOld;;
+    *) echo "Wrong option please select again"; filesystem;;
     esac
 }
-
-
-# @description This function will handle file systems. At this movement we are handling only
-# btrfs and ext4. Others will be added in future.
-filesystem () {
-
-    options=(1 "btrfs" 2 "ext4" 3 "luks")
-    choice=$(dialog --menu "Choose Filesystem:" 10 30 4 "${options[@]}" 2>&1 >/dev/tty)
-
-    case $? in
-    0)
-        case $choice in
-        0) set_option FS btrfs ;;
-        1) set_option FS ext4 ;;
-        2)
-            set_password "LUKS_PASSWORD"
-            set_option FS luks
-            ;;
-        3) exit ;;
-        *) echo "Wrong option please select again"; filesystem ;;
-        esac
-        ;;
-    1) echo "Canceled." ;;
-    *) echo "Error or Escape key pressed. Exiting." ;;
-    esac
-}
-
-
-
 
 # @description Detects and sets timezone. 
 timezone () {

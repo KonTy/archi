@@ -3,7 +3,7 @@
 # Installing git
 cd ~
 echo "Installing git."
-pacman -Sy --noconfirm --needed git glibc dialog
+pacman -Sy --noconfirm --needed git glibc
 
 echo "Cloning the archi Project"
 git clone https://github.com/KonTy/archi
