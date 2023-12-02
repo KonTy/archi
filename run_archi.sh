@@ -17,13 +17,14 @@ echo "Script dir is $SCRIPT_DIR cd into it"
 cd "$SCRIPT_DIR"
 
 echo "Launching start up..."
-bash $SCRIPTS_DIR/startup.sh 2>&1 | tee -a "$output_file"
+( bash $SCRIPTS_DIR/startup.sh ) 2>&1 | tee -a "$output_file"
 source $CONFIGS_DIR/setup.conf
-bash $SCRIPTS_DIR/0-preinstall.sh 2>&1 | tee -a "$output_file"
+( bash $SCRIPTS_DIR/0-preinstall.sh ) 2>&1 | tee -a "$output_file"
 ( arch-chroot /mnt $SCRIPTS_DIR/1-setup.sh ) 2>&1 | tee -a "$output_file"
 
-echo "Desktop Environment is $DESKTOP_ENV"
+echo "Desktop Environment is $DESKTOP_ENV" 2>&1 | tee -a "$output_file"
 if [[ "$DESKTOP_ENV" != "server" ]]; then
+    echo "Running as $USERNAME script: $SCRIPTS_DIR/2-user.sh" 2>&1 | tee -a "$output_file"
     ( arch-chroot /mnt /usr/bin/runuser -u $USERNAME -- $SCRIPTS_DIR/2-user.sh ) 2>&1 | tee -a "$output_file"
 fi
 ( arch-chroot /mnt $SCRIPTS_DIR/3-post-setup.sh ) 2>&1 | tee -a "$output_file"
