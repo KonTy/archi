@@ -152,12 +152,8 @@ else
     pacstrap /mnt efibootmgr --noconfirm --needed
 fi
 
-
-
-echo "Press any key to continue..."
-read -n 1 -s key
-
-
+# echo "Press any key to continue..."
+# read -n 1 -s key
 
 echo -ne "
 -------------------------------------------------------------------------
