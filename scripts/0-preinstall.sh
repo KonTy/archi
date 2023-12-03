@@ -44,7 +44,7 @@ echo -ne "
 umount -A --recursive /mnt 2>/dev/null 
 # disk prep
 echo "Zapping disk: ${DISK}"
-cryptsetup luksOpen --clear ${DISK} temporary_name
+cryptsetup --header ${DISK} luksErase
 sgdisk --zap-all ${DISK}
 
 lsblk
