@@ -42,7 +42,7 @@ echo -ne "
 # make sure everything is unmounted before we start
 umount -A --recursive /mnt 2>/dev/null 
 # disk prep
-sgdisk -Z ${DISK} # zap all on disk
+sgdisk --zap-all ${DISK}
 
 echo -ne "
 -------------------------------------------------------------------------
@@ -94,11 +94,18 @@ mount /dev/mapper/cryptroot /mnt/root
 mkdir /mnt/home
 mount --bind /mnt/home /mnt/home
 
-echo ENCRYPTED_PARTITION_UUID=$(blkid -s UUID -o value ${partition3}) >> $CONFIGS_DIR/setup.conf
+
+# Assuming you have the following variable set:
+ENCRYPTED_PARTITION_UUID=$(blkid -s UUID -o value ${partition3})
+echo "ENCRYPTED_PARTITION_UUID=${ENCRYPTED_PARTITION_UUID}" >> $CONFIGS_DIR/setup.conf
+# Update /etc/fstab
+echo "UUID=${ENCRYPTED_PARTITION_UUID} /mnt ext4 defaults 0 0" | tee -a /etc/fstab
 
 # mount target
 mkdir -p /mnt/boot/efi
 mount -t vfat -L EFIBOOT /mnt/boot/
+
+mkdir /mnt/home /mnt/var /mnt/tmp
 
 
 # echo "Make LVM and files system"
