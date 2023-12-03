@@ -73,8 +73,8 @@ else
     partition3=${DISK}3
 fi
 
-echo "******* Current partition layout on ${DISK} "
-fdisk -l
+# echo "******* Current partition layout on ${DISK} "
+# fdisk -l
 
 # make filesystems
 echo -ne "
@@ -87,19 +87,29 @@ mkfs.fat -F32 $partition2
 
 echo "Prepare LUKS volume"
 cryptsetup luksFormat --batch-mode $partition3
-cryptsetup open $partition3 cryptlvm
-
-echo "Make LVM and files system"
-pvcreate /dev/mapper/cryptlvm
-vgcreate ${partition3} /dev/mapper/cryptlvm
-lvcreate -l 100%FREE ${partition3} -n root
-
-echo "Format the logical volume and mount it"
-mkfs.ext4 ${partition3}/root
-mount ${partition3}/root /mnt/root
+cryptsetup open $partition3 cryptroot
+mkfs.ext4 /dev/mapper/cryptroot
+mount /dev/mapper/cryptroot /mnt/root
 
 mkdir /mnt/home
 mount --bind /mnt/home /mnt/home
+
+echo ENCRYPTED_PARTITION_UUID=$(blkid -s UUID -o value ${partition3}) >> $CONFIGS_DIR/setup.conf
+
+# mount target
+mkdir -p /mnt/boot/efi
+mount -t vfat -L EFIBOOT /mnt/boot/
+
+
+# echo "Make LVM and files system"
+# pvcreate /dev/mapper/cryptlvm
+# vgcreate ${partition3} /dev/mapper/cryptlvm
+# lvcreate -l 100%FREE ${partition3} -n root
+
+# echo "Format the logical volume and mount it"
+# mkfs.ext4 ${partition3}/root
+# mount ${partition3}/root /mnt/root
+
 
 # swap_loc="/mnt/swapfile"
 # fallocate -l 32G $swap_loc
