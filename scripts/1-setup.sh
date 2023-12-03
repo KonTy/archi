@@ -166,9 +166,9 @@ if [ $(whoami) = "root"  ]; then
     echo "$USERNAME:$PASSWORD" | chpasswd
     echo "$USERNAME password set"
 
-	cp -R $HOME/${SCRIPTHOME_DIR} /home/$USERNAME/
-    chown -R $USERNAME: /home/$USERNAME/${SCRIPTHOME_DIR}
-    echo "${SCRIPTHOME_DIR} copied to home directory"
+	cp -R $HOME/$SCRIPTHOME_DIR /home/$USERNAME/
+    chown -R $USERNAME: /home/$USERNAME/$SCRIPTHOME_DIR
+    echo "$SCRIPTHOME_DIR copied to home directory"
 
 # enter $NAME_OF_MACHINE to /etc/hostname
 	echo $NAME_OF_MACHINE > /etc/hostname

@@ -180,6 +180,11 @@ filesystem () {
     echo -ne "
     Please Select your file system for both boot and root
     "
+
+    set_option FS btrfs
+
+    return
+
     options=("btrfs" "ext4" "luks" "exit")
     select_option $? 1 "${options[@]}"
 
@@ -201,6 +206,11 @@ timezone () {
     time_zone="$(curl --fail https://ipapi.co/timezone)"
     echo -ne "
     System detected your timezone to be '$time_zone' \n"
+    
+    set_option TIMEZONE $time_zone;;
+
+    return
+
     echo -ne "Is this correct?
     " 
     options=("Yes" "No")
@@ -224,9 +234,10 @@ keymap () {
     Please select key board layout from this list"
     # These are default key maps as presented in official arch repo archinstall
     options=(us by ca cf cz de dk es et fa fi fr gr hu il it lt lv mk nl no pl ro ru sg ua uk)
+    keymap="us"
 
-    select_option $? 4 "${options[@]}"
-    keymap=${options[$?]}
+   # select_option $? 4 "${options[@]}"
+   # keymap=${options[$?]}
 
     echo -ne "Your key boards layout: ${keymap} \n"
     set_option KEYMAP $keymap
@@ -280,7 +291,10 @@ userinfo () {
     read -p "Please enter your username: " username
     set_option USERNAME ${username,,} # convert to lower case as in issue #109 
     set_password "PASSWORD"
-    read -rep "Please enter your hostname: " nameofmachine
+
+    random_string=$(tr -dc 'a-z0-9' < /dev/urandom | head -c 6)
+    nameofmachine="mini$random_string"
+    #read -rep "Please enter your hostname: " nameofmachine
     set_option NAME_OF_MACHINE $nameofmachine
 }
 
@@ -289,8 +303,9 @@ aurhelper () {
     # Let the user choose AUR helper from predefined list
     echo -ne "Please enter your desired AUR helper:\n"
     options=(paru yay picaur aura trizen pacaur none)
-    select_option $? 4 "${options[@]}"
-    aur_helper=${options[$?]}
+    #select_option $? 4 "${options[@]}"
+    #aur_helper=${options[$?]}
+    aur_helper="yay"
     set_option AUR_HELPER $aur_helper
 }
 
@@ -310,8 +325,9 @@ installtype () {
     Full install: Installs full featured desktop enviroment, with added apps and themes needed for everyday use\n
     Minimal Install: Installs only apps few selected apps to get you started\n"
     options=(FULL MINIMAL)
-    select_option $? 4 "${options[@]}"
-    install_type=${options[$?]}
+    #select_option $? 4 "${options[@]}"
+    #install_type=${options[$?]}
+    install_type="MINIMAL"
     set_option INSTALL_TYPE $install_type
 }
 
