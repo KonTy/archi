@@ -42,6 +42,7 @@ echo -ne "
 # make sure everything is unmounted before we start
 umount -A --recursive /mnt 2>/dev/null 
 # disk prep
+echo "Zapping disk: ${DISK}"
 sgdisk --zap-all ${DISK}
 
 echo -ne "
