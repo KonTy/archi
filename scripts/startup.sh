@@ -203,24 +203,24 @@ timezone () {
     echo -ne "
     System detected your timezone to be '$time_zone' \n"
 
-    set_option TIMEZONE "America/Los_Angeles";;
+    #set_option TIMEZONE "America/Los_Angeles";;
 
-    # echo -ne "Is this correct?
-    # " 
-    # options=("Yes" "No")
-    # select_option $? 1 "${options[@]}"
+    echo -ne "Is this correct?
+    " 
+    options=("Yes" "No")
+    select_option $? 1 "${options[@]}"
 
-    # case ${options[$?]} in
-    #     y|Y|yes|Yes|YES)
-    #     echo "${time_zone} set as timezone"
-    #     set_option TIMEZONE $time_zone;;
-    #     n|N|no|NO|No)
-    #     echo "Please enter your desired timezone e.g. Europe/London :" 
-    #     read new_timezone
-    #     echo "${new_timezone} set as timezone"
-    #     set_option TIMEZONE $new_timezone;;
-    #     *) echo "Wrong option. Try again";timezone;;
-    # esac
+    case ${options[$?]} in
+        y|Y|yes|Yes|YES)
+        echo "${time_zone} set as timezone"
+        set_option TIMEZONE $time_zone;;
+        n|N|no|NO|No)
+        echo "Please enter your desired timezone e.g. Europe/London :" 
+        read new_timezone
+        echo "${new_timezone} set as timezone"
+        set_option TIMEZONE $new_timezone;;
+        *) echo "Wrong option. Try again";timezone;;
+    esac
 }
 # @description Set user's keyboard mapping. 
 keymap () {
