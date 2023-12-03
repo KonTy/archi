@@ -73,7 +73,7 @@ read -n 1 -s key
 
 
 echo "Prepare UEFI boot partition"
-mkfs.fat -F32 ${DISK}
+mkfs.fat -F32 ${DISK}p1
 
 echo "Prepare LUKS volume"
 cryptsetup luksFormat ${DISK}p2
