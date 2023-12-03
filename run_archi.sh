@@ -5,6 +5,11 @@ SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
 # Extract only the last directory without the full path
 SCRIPTHOME_DIR="${SCRIPT_DIR##*/}"
+# Use free command to get total available memory
+TOTAL_RAM=$(free -m | awk '/^Mem:/ {print $2}')
+# Set RAM_SIZE to be equal to total available RAM
+RAM_SIZE="${TOTAL_RAM}M"
+
 set +a
 
 echo "All variables are set"

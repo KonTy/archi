@@ -50,174 +50,56 @@ echo -ne "
                     Creating Paritions 
 -------------------------------------------------------------------------
 "
+
+VOLUME_GROUP_NAME="systemvg"
+
 sgdisk -a 2048 -o ${DISK} # new gpt disk 2048 alignment
-# create partitions
-sgdisk -n 1::+1M --typecode=1:ef02 --change-name=1:'BIOSBOOT' ${DISK} # partition 1 (BIOS Boot Partition)
-sgdisk -n 2::+300M --typecode=2:ef00 --change-name=2:'EFIBOOT' ${DISK} # partition 2 (UEFI Boot Partition)
-sgdisk -n 3::-0 --typecode=3:8300 --change-name=3:'ROOT' ${DISK} # partition 3 (Root), default start, remaining
 
-if [[ ! -d "/sys/firmware/efi" ]]; then # Checking for bios system
-    echo "System is running in the BIOS mode so switch to BIOS partition"
-    sgdisk -A 1:set:2 ${DISK}
-fi
-partprobe ${DISK} # reread partition table to ensure it is correct
+# First partition (512M)
+sgdisk -n 1::512M -t 1:ef00 -c 1:"EFI System" ${DISK}
 
-# This is a regular expression match. It checks if the value of ${DISK} contains the substring "nvme".
-# this is done in compliance with some conventions where nvme drive gets a "p" in front of the namber
-if [[ "${DISK}" =~ "nvme" ]]; then
-    echo "Installing on to NVME drive"
-    partition2=${DISK}p2
-    partition3=${DISK}p3
-else
-    echo "Installing on a regular drive"
-    partition2=${DISK}2
-    partition3=${DISK}3
-fi
+# Second partition (rest of the disk) 8309 is used for LUKS 
+# but it is not a hard standard you can fall back to 8300 as a generic Linux partition
+sgdisk -n 2:: -t 2:8309 -c 2:"Linux LUKS" ${DISK}
 
-# echo "******* Current partition layout on ${DISK} "
-# fdisk -l
-
-# make filesystems
-echo -ne "
--------------------------------------------------------------------------
-                    Creating Filesystems
--------------------------------------------------------------------------
-"
-echo "Prepare UEFI"
-mkfs.fat -F32 $partition2
+echo "Prepare UEFI boot partition"
+mkfs.fat -F32 ${DISK}
 
 echo "Prepare LUKS volume"
-cryptsetup luksFormat --batch-mode $partition3
-cryptsetup open $partition3 cryptroot
-mkfs.ext4 /dev/mapper/cryptroot
-mount /dev/mapper/cryptroot /mnt/root
+cryptsetup luksFormat ${DISK}p2
+cryptsetup open ${DISK}p2 cryptlvm
 
-mkdir /mnt/home
-mount --bind /mnt/home /mnt/home
+echo "Make a LVM and filesystems and a system volume group"
+pvcreate /dev/mapper/cryptlvm
+vgcreate ${VOLUME_GROUP_NAME} /dev/mapper/cryptlvm
+lvcreate -L ${RAM_SIZE} -n swap ${VOLUME_GROUP_NAME}
+lvcreate -L 50G -n root ${VOLUME_GROUP_NAME}
+lvcreate -L 8G -n tmp ${VOLUME_GROUP_NAME}
+lvcreate -L 30G -n var ${VOLUME_GROUP_NAME}
+lvcreate -l 100%FREE -n home ${VOLUME_GROUP_NAME}
 
+echo "Mounting everthing"
+mount /dev/${VOLUME_GROUP_NAME}/root /mnt
+mount /dev/${VOLUME_GROUP_NAME}/var /mnt/var
+mount /dev/${VOLUME_GROUP_NAME}/tmp /mnt/tmp
+mount /dev/${VOLUME_GROUP_NAME}/home /mnt/home
+mount --bind /etc /mnt/etc
 
-# Assuming you have the following variable set:
-ENCRYPTED_PARTITION_UUID=$(blkid -s UUID -o value ${partition3})
-echo "ENCRYPTED_PARTITION_UUID=${ENCRYPTED_PARTITION_UUID}" >> $CONFIGS_DIR/setup.conf
-# Update /etc/fstab
-echo "UUID=${ENCRYPTED_PARTITION_UUID} /mnt ext4 defaults 0 0" | tee -a /etc/fstab
+# mountinh EFI psrtition sd s boot psrtition
+mount ${DISK}p1 /mnt/boot
 
-# mount target
-mkdir -p /mnt/boot/efi
-mount -t vfat -L EFIBOOT /mnt/boot/
+echo "use 'lsblk -f' to list information about all partition and devices"
+lsblk -f
+ls /mnt/boot
 
-mkdir /mnt/home /mnt/var /mnt/tmp
+# /etc: Use --bind to mount the existing /etc from the host system to the chroot environment.
+# Other directories (/var, /tmp, /home, /boot): Directly mount the logical volumes to the corresponding directories in the chroot environment.
 
-
-# echo "Make LVM and files system"
-# pvcreate /dev/mapper/cryptlvm
-# vgcreate ${partition3} /dev/mapper/cryptlvm
-# lvcreate -l 100%FREE ${partition3} -n root
-
-# echo "Format the logical volume and mount it"
-# mkfs.ext4 ${partition3}/root
-# mount ${partition3}/root /mnt/root
-
-
-# swap_loc="/mnt/swapfile"
-# fallocate -l 32G $swap_loc
-# dd if=/dev/zero of=$swap_loc bs=1M count=32768
-# chmod 600 $swap_loc
-# mkswap $swap_loc
-# swapon $swap_loc
-
-# #make the swap file permanent, add an entry to the /etc/fstab file. 
-# echo '$swap_loc none swap defaults 0 0' | tee -a /etc/fstab
-
-# swapon --show
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # @description Creates the btrfs subvolumes. 
-# createsubvolumes () {
-#     btrfs subvolume create /mnt/@
-#     btrfs subvolume create /mnt/@home
-#     btrfs subvolume create /mnt/@var
-#     btrfs subvolume create /mnt/@tmp
-#     btrfs subvolume create /mnt/@.snapshots
-# }
-
-# # @description Mount all btrfs subvolumes after root has been mounted.
-# mountallsubvol () {
-#     mount -o ${MOUNT_OPTIONS},subvol=@home ${partition3} /mnt/home
-#     mount -o ${MOUNT_OPTIONS},subvol=@tmp ${partition3} /mnt/tmp
-#     mount -o ${MOUNT_OPTIONS},subvol=@var ${partition3} /mnt/var
-#     mount -o ${MOUNT_OPTIONS},subvol=@.snapshots ${partition3} /mnt/.snapshots
-# }
-
-# # @description BTRFS subvolulme creation and mounting. 
-# subvolumesetup () {
-# # create nonroot subvolumes
-#     createsubvolumes     
-# # unmount root to remount with subvolume 
-#     umount /mnt
-# # mount @ subvolume
-#     mount -o ${MOUNT_OPTIONS},subvol=@ ${partition3} /mnt
-# # make directories home, .snapshots, var, tmp
-#     mkdir -p /mnt/{home,var,tmp,.snapshots}
-# # mount subvolumes
-#     mountallsubvol
-# }
-
-
-# if [[ "${FS}" == "btrfs" ]]; then
-#     mkfs.vfat -F32 -n "EFIBOOT" ${partition2}
-#     mkfs.btrfs -L ROOT ${partition3} -f
-#     mount -t btrfs ${partition3} /mnt
-#     subvolumesetup
-# elif [[ "${FS}" == "ext4" ]]; then
-#     mkfs.vfat -F32 -n "EFIBOOT" ${partition2}
-#     mkfs.ext4 -L ROOT ${partition3}
-#     mount -t ext4 ${partition3} /mnt
-# elif [[ "${FS}" == "luks" ]]; then
-#     mkfs.vfat -F32 -n "EFIBOOT" ${partition2}
-# # enter luks password to cryptsetup and format root partition
-#     echo -n "${LUKS_PASSWORD}" | cryptsetup -y -v luksFormat ${partition3} -
-# # open luks container and ROOT will be place holder 
-#     echo -n "${LUKS_PASSWORD}" | cryptsetup open ${partition3} ROOT -
-# # now format that container
-#     mkfs.btrfs -L ROOT ${partition3}
-# # create subvolumes for btrfs
-#     mount -t btrfs ${partition3} /mnt
-#     subvolumesetup
-# # store uuid of encrypted partition for grub
-#     echo ENCRYPTED_PARTITION_UUID=$(blkid -s UUID -o value ${partition3}) >> $CONFIGS_DIR/setup.conf
-# fi
-
-# # mount target
-# mkdir -p /mnt/boot/efi
-# mount -t vfat -L EFIBOOT /mnt/boot/
-
-# if ! grep -qs '/mnt' /proc/mounts; then
-#     echo "Drive is not mounted can not continue"
-#     echo "Rebooting in 3 Seconds ..." && sleep 1
-#     echo "Rebooting in 2 Seconds ..." && sleep 1
-#     echo "Rebooting in 1 Second ..." && sleep 1
-#     reboot now
-# fi
-
-
+genfstab -L -p /mnt >> /mnt/etc/fstab
+echo " 
+  Generated /etc/fstab:
+"
+cat /mnt/etc/fstab
 
 
 echo -ne "
@@ -226,22 +108,24 @@ echo -ne "
 -------------------------------------------------------------------------
 "
 pacstrap /mnt base base-devel linux linux-firmware nano sudo archlinux-keyring wget libnewt --noconfirm --needed
-echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
+# not sure why Chris used ubuntu keyserver for Arch?
+# echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
+echo "keyserver hkps://hkps.pool.sks-keyservers.net" >> /mnt/etc/pacman.d/gnupg/gpg.conf
+
 cp -R ${SCRIPT_DIR} /mnt/root/${SCRIPTHOME_DIR}
 cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
 
-genfstab -L /mnt >> /mnt/etc/fstab
-echo " 
-  Generated /etc/fstab:
-"
-cat /mnt/etc/fstab
 echo -ne "
 -------------------------------------------------------------------------
                     GRUB BIOS Bootloader Install & Check
 -------------------------------------------------------------------------
 "
 if [[ ! -d "/sys/firmware/efi" ]]; then
+    echo "System is in EFI mode"
     grub-install --boot-directory=/mnt/boot ${DISK}
+    arch-chroot /mnt
+    grub-mkconfig -o /boot/grub/grub.cfg
+#    efibootmgr -c -d ${DISK} -p 1 -L "Arch Linux" -l /EFI/grub/grubx64.efi
 else
     pacstrap /mnt efibootmgr --noconfirm --needed
 fi
