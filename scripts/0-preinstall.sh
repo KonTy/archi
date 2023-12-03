@@ -86,7 +86,7 @@ echo "Prepare UEFI"
 mkfs.fat -F32 $partition2
 
 echo "Prepare LUKS volume"
-cryptsetup luksFormat $partition3
+cryptsetup luksFormat --batch-mode $partition3
 cryptsetup open $partition3 cryptlvm
 
 echo "Make LVM and files system"
