@@ -8,9 +8,10 @@
 source $CONFIGS_DIR/setup.conf
 iso=$(curl -4 ifconfig.co/country-iso)
 timedatectl set-ntp true
+pacman -S --noconfirm linux
 pacman -S --noconfirm archlinux-keyring #update keyrings to latest to prevent packages failing to install
 pacman -S --noconfirm --needed pacman-contrib terminus-font
-setfont ter-v22b
+setfont ter-v28b
 sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
 pacman -S --noconfirm --needed reflector rsync grub
 cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
@@ -38,10 +39,10 @@ echo -ne "
                     Formating Disk
 -------------------------------------------------------------------------
 "
-umount -A --recursive /mnt # make sure everything is unmounted before we start
+# make sure everything is unmounted before we start
+umount -A --recursive /mnt 2>/dev/null 
 # disk prep
 sgdisk -Z ${DISK} # zap all on disk
-
 
 echo -ne "
 -------------------------------------------------------------------------

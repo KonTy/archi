@@ -181,23 +181,23 @@ filesystem () {
     Please Select your file system for both boot and root
     "
 
-    set_option FS btrfs
+    set_option FS "btrfs"
 
-    return
+    # return
 
-    options=("btrfs" "ext4" "luks" "exit")
-    select_option $? 1 "${options[@]}"
+    # options=("btrfs" "ext4" "luks" "exit")
+    # select_option $? 1 "${options[@]}"
 
-    case $? in
-    0) set_option FS btrfs;;
-    1) set_option FS ext4;;
-    2) 
-        set_password "LUKS_PASSWORD"
-        set_option FS luks
-        ;;
-    3) exit ;;
-    *) echo "Wrong option please select again"; filesystem;;
-    esac
+    # case $? in
+    # 0) set_option FS btrfs;;
+    # 1) set_option FS ext4;;
+    # 2) 
+    #     set_password "LUKS_PASSWORD"
+    #     set_option FS luks
+    #     ;;
+    # 3) exit ;;
+    # *) echo "Wrong option please select again"; filesystem;;
+    # esac
 }
 
 # @description Detects and sets timezone. 
@@ -206,10 +206,6 @@ timezone () {
     time_zone="$(curl --fail https://ipapi.co/timezone)"
     echo -ne "
     System detected your timezone to be '$time_zone' \n"
-    
-    set_option TIMEZONE $time_zone;;
-
-    return
 
     echo -ne "Is this correct?
     " 
@@ -272,8 +268,7 @@ diskpart () {
 
     "
 
-    PS3='
-    Select the disk to install on: '
+    PS3=' Select the disk to install on: '
     options=($(lsblk -n --output TYPE,KNAME,SIZE | awk '$1=="disk"{print "/dev/"$2"|"$3}'))
 
     select_option $? 1 "${options[@]}"
