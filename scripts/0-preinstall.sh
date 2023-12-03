@@ -77,7 +77,8 @@ echo "Prepare UEFI boot partition"
 mkfs.fat -F32 ${DISK}p1
 
 echo "Prepare LUKS volume"
-echo "your_passphrase" | cryptsetup luksFormat --force-password ${DISK}p2
+
+cryptsetup luksFormat ${DISK}p2
 cryptsetup open ${DISK}p2 cryptlvm
 
 echo "Make a LVM and filesystems and a system volume group"
