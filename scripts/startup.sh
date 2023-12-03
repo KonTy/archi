@@ -227,8 +227,10 @@ keymap () {
     # These are default key maps as presented in official arch repo archinstall
     options=(us by ca cf cz de dk es et fa fi fr gr hu il it lt lv mk nl no pl ro ru sg ua uk)
   
-    select_option $? 4 "${options[@]}"
-    keymap=${options[$?]}
+   # select_option $? 4 "${options[@]}"
+   # keymap=${options[$?]}
+    
+    keymap="us"
 
     echo -ne "Your key boards layout: ${keymap} \n"
     set_option KEYMAP $keymap
@@ -273,7 +275,7 @@ diskpart () {
         set_option DISK ${disk%|*}
 
     echo "You have selected disk: $DISK"
-    drivessd
+    #drivessd
 }
 
 # @description Gather username and password to be used for installation. 
