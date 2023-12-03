@@ -76,7 +76,7 @@ echo "Prepare UEFI boot partition"
 mkfs.fat -F32 ${DISK}p1
 
 echo "Prepare LUKS volume"
-cryptsetup luksFormat ${DISK}p2
+echo "your_passphrase" | cryptsetup luksFormat --force-password ${DISK}p2
 cryptsetup open ${DISK}p2 cryptlvm
 
 echo "Make a LVM and filesystems and a system volume group"
@@ -89,12 +89,17 @@ lvcreate -L 30G -n var ${VOLUME_GROUP_NAME}
 lvcreate -l 100%FREE -n home ${VOLUME_GROUP_NAME}
 
 echo "Mounting everthing"
-mount /dev/${VOLUME_GROUP_NAME}/root /mnt
-mount /dev/${VOLUME_GROUP_NAME}/var /mnt/var
-mount /dev/${VOLUME_GROUP_NAME}/tmp /mnt/tmp
-# mount /dev/${VOLUME_GROUP_NAME}/swap /mnt/swap
-mount /dev/${VOLUME_GROUP_NAME}/home /mnt/home
-mount --bind /etc /mnt/etc
+cryptsetup luksOpen /dev/${VOLUME_GROUP_NAME}/root root
+cryptsetup luksOpen /dev/${VOLUME_GROUP_NAME}/var var
+cryptsetup luksOpen /dev/${VOLUME_GROUP_NAME}/tmp tmp
+cryptsetup luksOpen /dev/${VOLUME_GROUP_NAME}/home home
+
+mount /dev/mapper/root /mnt
+mount /dev/mapper/var /mnt/var
+mount /dev/mapper/tmp /mnt/tmp
+mount /dev/mapper/home /mnt/root/home
+
+mount --bind /etc /mnt/root/etc
 
 # mountinh EFI psrtition sd s boot psrtition
 mount ${DISK}p1 /mnt/boot
@@ -111,8 +116,9 @@ read -n 1 -s key
 # /etc: Use --bind to mount the existing /etc from the host system to the chroot environment.
 # Other directories (/var, /tmp, /home, /boot): Directly mount the logical volumes to the corresponding directories in the chroot environment.
 
-arch-chroot /mnt
-genfstab -L -p /mnt >> /mnt/etc/fstab
+arch-chroot /mnt /bin/bash <<EOF
+    genfstab -L -p /mnt >> /mnt/etc/fstab
+EOF
 echo " 
   Generated/mnt/etc/fstab:
 "
@@ -127,12 +133,23 @@ echo -ne "
                     GRUB BIOS Bootloader Install & Check
 -------------------------------------------------------------------------
 "
+
+# arch-chroot /mnt
+# grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub
+# grub-mkconfig -o /boot/grub/grub.cfg
+
+
 if [[ ! -d "/sys/firmware/efi" ]]; then
     echo "System is in EFI mode"
-    grub-install --boot-directory=/mnt/boot ${DISK}
-    arch-chroot /mnt
-    grub-mkconfig -o /boot/grub/grub.cfg
+
+    arch-chroot /mnt /bin/bash <<EOF
+        grub-install --boot-directory=/mnt/boot ${DISK}
+        arch-chroot /mnt
+        grub-mkconfig -o /boot/grub/grub.cfg
+EOF
+
 #    efibootmgr -c -d ${DISK} -p 1 -L "Arch Linux" -l /EFI/grub/grubx64.efi
+
 else
     pacstrap /mnt efibootmgr --noconfirm --needed
 fi
@@ -167,14 +184,13 @@ echo -ne "
 -------------------------------------------------------------------------
 "
 arch-chroot /mnt /bin/bash <<EOF
-pacstrap /mnt base base-devel linux linux-firmware nano sudo archlinux-keyring wget libnewt --noconfirm --needed
-# not sure why Chris used ubuntu keyserver for Arch?
-# echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
-echo "keyserver hkps://hkps.pool.sks-keyservers.net" >> /mnt/etc/pacman.d/gnupg/gpg.conf
+    pacstrap /mnt base base-devel linux linux-firmware nano sudo archlinux-keyring wget libnewt --noconfirm --needed
+    # not sure why Chris used ubuntu keyserver for Arch?
+    # echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
+    echo "keyserver hkps://hkps.pool.sks-keyservers.net" >> /mnt/etc/pacman.d/gnupg/gpg.conf
 
-arch-chroot /mnt
-cp -R ${SCRIPT_DIR} /mnt/${SCRIPTHOME_DIR}
-cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
+    cp -R ${SCRIPT_DIR} /mnt/${SCRIPTHOME_DIR}
+    cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
 EOF
 
 
