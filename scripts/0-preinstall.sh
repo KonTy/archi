@@ -4,11 +4,12 @@
 # @file Preinstall
 # @brief Contains the steps necessary to configure and pacstrap the install to selected drive. 
 
+echo "Error" >&2
 
 source $CONFIGS_DIR/setup.conf
 iso=$(curl -4 ifconfig.co/country-iso)
 timedatectl set-ntp true
-pacman -S --noconfirm linux
+# pacman -S --noconfirm linux
 pacman -S --noconfirm archlinux-keyring #update keyrings to latest to prevent packages failing to install
 pacman -S --noconfirm --needed pacman-contrib terminus-font
 setfont ter-v28b
@@ -45,6 +46,10 @@ umount -A --recursive /mnt 2>/dev/null
 echo "Zapping disk: ${DISK}"
 sgdisk --zap-all ${DISK}
 
+lsblk
+echo "Press any key to continue..."
+read -n 1 -s key
+
 echo -ne "
 -------------------------------------------------------------------------
                     Creating Paritions 
@@ -62,6 +67,11 @@ sgdisk -n 1::512M -t 1:ef00 -c 1:"EFI System" ${DISK}
 # but it is not a hard standard you can fall back to 8300 as a generic Linux partition
 sgdisk -n 2:: -t 2:8309 -c 2:"Linux LUKS" ${DISK}
 
+lsblk
+echo "Press any key to continue..."
+read -n 1 -s key
+
+
 echo "Prepare UEFI boot partition"
 mkfs.fat -F32 ${DISK}
 
@@ -72,7 +82,7 @@ cryptsetup open ${DISK}p2 cryptlvm
 echo "Make a LVM and filesystems and a system volume group"
 pvcreate /dev/mapper/cryptlvm
 vgcreate ${VOLUME_GROUP_NAME} /dev/mapper/cryptlvm
-lvcreate -L ${RAM_SIZE} -n swap ${VOLUME_GROUP_NAME}
+# lvcreate -L ${RAM_SIZE} -n swap ${VOLUME_GROUP_NAME}
 lvcreate -L 50G -n root ${VOLUME_GROUP_NAME}
 lvcreate -L 8G -n tmp ${VOLUME_GROUP_NAME}
 lvcreate -L 30G -n var ${VOLUME_GROUP_NAME}
@@ -82,6 +92,7 @@ echo "Mounting everthing"
 mount /dev/${VOLUME_GROUP_NAME}/root /mnt
 mount /dev/${VOLUME_GROUP_NAME}/var /mnt/var
 mount /dev/${VOLUME_GROUP_NAME}/tmp /mnt/tmp
+# mount /dev/${VOLUME_GROUP_NAME}/swap /mnt/swap
 mount /dev/${VOLUME_GROUP_NAME}/home /mnt/home
 mount --bind /etc /mnt/etc
 
@@ -91,29 +102,25 @@ mount ${DISK}p1 /mnt/boot
 echo "use 'lsblk -f' to list information about all partition and devices"
 lsblk -f
 ls /mnt/boot
+ls /mnt
+
+echo "Press any key to continue..."
+read -n 1 -s key
+
 
 # /etc: Use --bind to mount the existing /etc from the host system to the chroot environment.
 # Other directories (/var, /tmp, /home, /boot): Directly mount the logical volumes to the corresponding directories in the chroot environment.
 
+arch-chroot /mnt
 genfstab -L -p /mnt >> /mnt/etc/fstab
 echo " 
-  Generated /etc/fstab:
+  Generated/mnt/etc/fstab:
 "
+ls /mnt/etc
 cat /mnt/etc/fstab
 
-
-echo -ne "
--------------------------------------------------------------------------
-                    Arch Install on Main Drive
--------------------------------------------------------------------------
-"
-pacstrap /mnt base base-devel linux linux-firmware nano sudo archlinux-keyring wget libnewt --noconfirm --needed
-# not sure why Chris used ubuntu keyserver for Arch?
-# echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
-echo "keyserver hkps://hkps.pool.sks-keyservers.net" >> /mnt/etc/pacman.d/gnupg/gpg.conf
-
-cp -R ${SCRIPT_DIR} /mnt/root/${SCRIPTHOME_DIR}
-cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
+echo "Press any key to continue for fstab..."
+read -n 1 -s key
 
 echo -ne "
 -------------------------------------------------------------------------
@@ -130,27 +137,55 @@ else
     pacstrap /mnt efibootmgr --noconfirm --needed
 fi
 
-# echo "Press any key to continue..."
-# read -n 1 -s key
+echo "Press any key to continue..."
+read -n 1 -s key
 
 echo -ne "
 -------------------------------------------------------------------------
                     Checking for low memory systems <8G
 -------------------------------------------------------------------------
 "
-TOTAL_MEM=$(cat /proc/meminfo | grep -i 'memtotal' | grep -o '[[:digit:]]*')
-if [[  $TOTAL_MEM -lt 8000000 ]]; then
-    # Put swap into the actual system, not into RAM disk, otherwise there is no point in it, it'll cache RAM into RAM. So, /mnt/ everything.
-    mkdir -p /mnt/opt/swap # make a dir that we can apply NOCOW to to make it btrfs-friendly.
-    chattr +C /mnt/opt/swap # apply NOCOW, btrfs needs that.
-    dd if=/dev/zero of=/mnt/opt/swap/swapfile bs=1M count=2048 status=progress
-    chmod 600 /mnt/opt/swap/swapfile # set permissions.
-    chown root /mnt/opt/swap/swapfile
-    mkswap /mnt/opt/swap/swapfile
-    swapon /mnt/opt/swap/swapfile
-    # The line below is written to /mnt/ but doesn't contain /mnt/, since it's just / for the system itself.
-    echo "/opt/swap/swapfile	none	swap	sw	0	0" >> /mnt/etc/fstab # Add swap to fstab, so it KEEPS working after installation.
-fi
+
+
+# Variables
+SWAP_SIZE="$TOTAL_RAM"  # Size of the swap file in megabytes
+SWAP_DIR="/opt/swap"  # Directory to store the swap file
+
+arch-chroot /mnt /bin/bash <<EOF
+  chattr +C ${SWAP_DIR}  # apply NOCOW, btrfs needs that.
+  dd if=/dev/zero of=${SWAP_DIR}/swapfile bs=1M count=${SWAP_SIZE} status=progress
+  chmod 600 ${SWAP_DIR}/swapfile  # set permissions.
+  chown root ${SWAP_DIR}/swapfile
+  mkswap ${SWAP_DIR}/swapfile
+  swapon ${SWAP_DIR}/swapfile
+EOF
+
+
+echo -ne "
+-------------------------------------------------------------------------
+                    Arch Install on Main Drive
+-------------------------------------------------------------------------
+"
+arch-chroot /mnt /bin/bash <<EOF
+pacstrap /mnt base base-devel linux linux-firmware nano sudo archlinux-keyring wget libnewt --noconfirm --needed
+# not sure why Chris used ubuntu keyserver for Arch?
+# echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
+echo "keyserver hkps://hkps.pool.sks-keyservers.net" >> /mnt/etc/pacman.d/gnupg/gpg.conf
+
+arch-chroot /mnt
+cp -R ${SCRIPT_DIR} /mnt/${SCRIPTHOME_DIR}
+cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
+EOF
+
+
+
+
+
+
+
+
+
+
 echo -ne "
 -------------------------------------------------------------------------
                     SYSTEM READY FOR 1-setup.sh

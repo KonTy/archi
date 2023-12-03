@@ -24,7 +24,10 @@ cd "$SCRIPT_DIR"
 echo "Launching start up..."
 ( bash $SCRIPTS_DIR/startup.sh ) 2>&1 | tee -a "$output_file"
 source $CONFIGS_DIR/setup.conf
-( bash $SCRIPTS_DIR/0-preinstall.sh ) 2>&1 | tee -a "$output_file"
+
+# adding more debug info
+( stdbuf -oL bash -x $SCRIPTS_DIR/0-preinstall.sh ) 2>&1 | tee -a "$output_file"
+# ( bash $SCRIPTS_DIR/0-preinstall.sh ) 2>&1 | tee -a "$output_file"
 ( arch-chroot /mnt $SCRIPTS_DIR/1-setup.sh ) 2>&1 | tee -a "$output_file"
 
 echo "Desktop Environment is $DESKTOP_ENV" 2>&1 | tee -a "$output_file"
