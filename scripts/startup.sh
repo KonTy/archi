@@ -271,6 +271,7 @@ diskpart () {
     echo -e "\n${disk%|*} selected \n"
         set_option DISK ${disk%|*}
 
+    echo "You have selected disk: $DISK"
     drivessd
 }
 
