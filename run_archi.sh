@@ -11,7 +11,7 @@ echo "All variables are set"
 
 
 # Output file
-output_file="output.log"
+output_file="archi.log"
 
 echo "Script dir is $SCRIPT_DIR cd into it"
 cd "$SCRIPT_DIR"
@@ -23,9 +23,8 @@ source $CONFIGS_DIR/setup.conf
 ( arch-chroot /mnt $SCRIPTS_DIR/1-setup.sh ) 2>&1 | tee -a "$output_file"
 
 echo "Desktop Environment is $DESKTOP_ENV" 2>&1 | tee -a "$output_file"
-chmod +x $SCRIPTS_DIR/2-user.sh
 if [[ "$DESKTOP_ENV" != "server" ]]; then
-    echo "**** Running as $USERNAME script: $SCRIPTS_DIR/2-user.sh" 2>&1 | tee -a "$output_file"
+    echo "**** Running as $USERNAME script: /home/$USERNAME/$SCRIPTHOME_DIR/scripts/2-user.sh" 2>&1 | tee -a "$output_file"
     (arch-chroot /mnt /usr/bin/runuser -u $USERNAME /home/$USERNAME/$SCRIPTHOME_DIR/scripts/2-user.sh) > >(tee -a "$output_file") 2> >(tee -a "$output_file" >&2)
 fi
 
