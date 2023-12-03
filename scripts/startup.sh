@@ -282,9 +282,9 @@ userinfo () {
     set_option USERNAME ${username,,} # convert to lower case as in issue #109 
     set_password "PASSWORD"
 
-    # random_string=$(tr -dc 'a-z0-9' < /dev/urandom | head -c 6)
-    # nameofmachine="mini$random_string"
-    read -rep "Please enter your hostname: " nameofmachine
+    random_string=$(tr -dc 'a-z0-9' < /dev/urandom | head -c 6)
+    nameofmachine="mini$random_string"
+#    read -rep "Please enter your hostname: " nameofmachine
     set_option NAME_OF_MACHINE $nameofmachine
 }
 
@@ -293,10 +293,11 @@ aurhelper () {
     # Let the user choose AUR helper from predefined list
     echo -ne "Please enter your desired AUR helper:\n"
     options=(paru yay picaur aura trizen pacaur none)
-    select_option $? 4 "${options[@]}"
-    aur_helper=${options[$?]}
 
-#    aur_helper="yay"
+    # select_option $? 4 "${options[@]}"
+    # aur_helper=${options[$?]}
+
+    aur_helper="yay"
     set_option AUR_HELPER $aur_helper
 }
 
