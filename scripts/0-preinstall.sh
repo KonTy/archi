@@ -81,7 +81,7 @@ modprobe dm_crypt
 echo "Prepare LUKS volume"
 
 cryptsetup luksFormat ${DISK}p2
-cryptsetup open ${DISK}p2 cryptlvm
+cryptsetup luksOpen ${DISK}p2 cryptlvm
 
 echo "Make a LVM and filesystems and a system volume group"
 pvcreate /dev/mapper/cryptlvm
@@ -96,7 +96,7 @@ lvdisplay /dev/${VOLUME_GROUP_NAME}/*
 echo "Press any key to continue..."
 read -n 1 -s key
 
-lsblk -o NAME,TYPE,MOUNTPOINT | awk '$2=="crypt" {print $1}' | xargs -I{} cryptsetup luksDump /dev/{}
+cryptsetup luksDump /dev/*
 echo "Press any key to continue..."
 read -n 1 -s key
 
@@ -163,7 +163,6 @@ if [[ ! -d "/sys/firmware/efi" ]]; then
 
     arch-chroot /mnt /bin/bash <<EOF
         grub-install --boot-directory=/mnt/boot ${DISK}
-        arch-chroot /mnt
         grub-mkconfig -o /boot/grub/grub.cfg
 EOF
 
