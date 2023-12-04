@@ -28,12 +28,9 @@ echo -ne "
                     Installing Prerequisites
 -------------------------------------------------------------------------
 "
-pacman -S --noconfirm --needed gptfdisk btrfs-progs glibc
-
-
-
-
-
+pacman -S --noconfirm --needed gptfdisk btrfs-progs glibc dm_mod dm_crypt
+modprobe dm_mod
+modprobe dm_crypt
 
 echo -ne "
 -------------------------------------------------------------------------
@@ -47,9 +44,9 @@ echo "Zapping disk: ${DISK}"
 wipefs -af ${DISK}
 sgdisk --zap-all ${DISK}
 
-lsblk
-echo "Press any key to continue..."
-read -n 1 -s key
+# lsblk
+# echo "Press any key to continue..."
+# read -n 1 -s key
 
 echo -ne "
 -------------------------------------------------------------------------
@@ -66,65 +63,104 @@ sgdisk -n 1::512M -t 1:ef00 -c 1:"EFI System" ${DISK}
 
 # Second partition (rest of the disk) 8309 is used for LUKS 
 # but it is not a hard standard you can fall back to 8300 as a generic Linux partition
-sgdisk -n 2:: -t 2:8309 -c 2:"Linux LUKS" ${DISK}
+sgdisk -n 2:: -t 2:8309 -c 2:"Linux" ${DISK}
 
-lsblk
-echo "Press any key to continue..."
-read -n 1 -s key
+# lsblk
+# echo "Press any key to continue..."
+# read -n 1 -s key
 
 echo "Prepare UEFI boot partition"
-mkfs.fat -F32 ${DISK}p1
+mkfs.vfat -F32 -n "EFIBOOT" ${DISK}p1
 
-modprobe dm_mod
-modprobe dm_crypt
+#mkfs.fat -F32 ${DISK}p1
 
 echo "Prepare LUKS volume"
 
-cryptsetup luksFormat ${DISK}p2
-cryptsetup luksOpen ${DISK}p2 cryptlvm
+LUKS_PASSWORD="hooy"
+echo -n "${LUKS_PASSWORD}" | cryptsetup -y -v luksFormat ${DISK}p2 -
+# open luks container and ROOT will be place holder 
+echo -n "${LUKS_PASSWORD}" | cryptsetup open ${DISK}p2 ROOT -
 
-echo "Make a LVM and filesystems and a system volume group"
-pvcreate /dev/mapper/cryptlvm
-vgcreate ${VOLUME_GROUP_NAME} /dev/mapper/cryptlvm
-# lvcreate -L ${RAM_SIZE} -n swap ${VOLUME_GROUP_NAME}
-lvcreate -L 50G -n root ${VOLUME_GROUP_NAME}
-lvcreate -L 8G -n tmp ${VOLUME_GROUP_NAME}
-lvcreate -L 30G -n var ${VOLUME_GROUP_NAME}
-lvcreate -l 100%FREE -n home ${VOLUME_GROUP_NAME}
+mkfs.btrfs -L ROOT ${DISK}p2
+mount -t btrfs ${DISK}p2 /mnt
+btrfs subvolume create /mnt/@
+btrfs subvolume create /mnt/@home
+btrfs subvolume create /mnt/@var
+btrfs subvolume create /mnt/@tmp
+btrfs subvolume create /mnt/@.snapshots
 
-lvdisplay /dev/${VOLUME_GROUP_NAME}/*
-echo "Press any key to continue..."
-read -n 1 -s key
+umount /mnt
 
-cryptsetup luksDump /dev/*
-echo "Press any key to continue..."
-read -n 1 -s key
+set_option MOUNT_OPTIONS "noatime,compress=zstd,ssd,commit=120";;
+# mount @ subvolume
+mount -o ${MOUNT_OPTIONS},subvol=@ ${DISK}p2 /mnt
+# make directories home, .snapshots, var, tmp
+mkdir -p /mnt/{home,var,tmp,.snapshots}
+mount -o ${MOUNT_OPTIONS},subvol=@home ${partition3} /mnt/home
+mount -o ${MOUNT_OPTIONS},subvol=@tmp ${partition3} /mnt/tmp
+mount -o ${MOUNT_OPTIONS},subvol=@var ${partition3} /mnt/var
+mount -o ${MOUNT_OPTIONS},subvol=@.snapshots ${partition3} /mnt/.snapshots
 
-# echo "Mounting everthing"
-# cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-root root
-# cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-var var
-# cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-tmp tmp
-# cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-home home
+echo ENCRYPTED_PARTITION_UUID=$(blkid -s UUID -o value ${partition3}) >> $CONFIGS_DIR/setup.conf
 
-# mount /dev/mapper/root /mnt
-# mount /dev/mapper/var /mnt/var
-# mount /dev/mapper/tmp /mnt/tmp
-# mount /dev/mapper/home /mnt/home
+# mount target
+mkdir -p /mnt/boot/efi
+mount -t vfat -L EFIBOOT /mnt/boot/
 
-mount /dev/${VOLUME_GROUP_NAME}/root /mnt
-mount /dev/${VOLUME_GROUP_NAME}/var /mnt/var
-mount /dev/${VOLUME_GROUP_NAME}/tmp /mnt/tmp
-mount /dev/${VOLUME_GROUP_NAME}/home /mnt/home
+if ! grep -qs '/mnt' /proc/mounts; then
+    echo "Drive is not mounted can not continue"
+    echo "Rebooting in 3 Seconds ..." && sleep 1
+    echo "Rebooting in 2 Seconds ..." && sleep 1
+    echo "Rebooting in 1 Second ..." && sleep 1
+    echo "Press any key to continue..."
+    read -n 1 -s key
+
+#    reboot now
+fi
 
 
-mkdir /mnt/etc
-mount --bind /etc /mnt/etc
+# echo "Make a LVM and filesystems and a system volume group"
+# pvcreate /dev/mapper/ROOT
+# vgcreate ${VOLUME_GROUP_NAME} /dev/mapper/ROOT
+# # lvcreate -L ${RAM_SIZE} -n swap ${VOLUME_GROUP_NAME}
+# lvcreate -L 50G -n root ${VOLUME_GROUP_NAME}
+# lvcreate -L 8G -n tmp ${VOLUME_GROUP_NAME}
+# lvcreate -L 30G -n var ${VOLUME_GROUP_NAME}
+# lvcreate -l 100%FREE -n home ${VOLUME_GROUP_NAME}
 
-# mountinh EFI psrtition sd s boot psrtition
-mount ${DISK}p1 /mnt/boot
+# lvdisplay /dev/${VOLUME_GROUP_NAME}/*
+# echo "Press any key to continue..."
+# read -n 1 -s key
+
+# # cryptsetup luksDump /dev/*
+# # echo "Press any key to continue..."
+# # read -n 1 -s key
+
+# # echo "Mounting everthing"
+# # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-root root
+# # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-var var
+# # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-tmp tmp
+# # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-home home
+
+# # mount /dev/mapper/root /mnt
+# # mount /dev/mapper/var /mnt/var
+# # mount /dev/mapper/tmp /mnt/tmp
+# # mount /dev/mapper/home /mnt/home
+
+# mount /dev/${VOLUME_GROUP_NAME}/root /mnt
+# mount /dev/${VOLUME_GROUP_NAME}/var /mnt/var
+# mount /dev/${VOLUME_GROUP_NAME}/tmp /mnt/tmp
+# mount /dev/${VOLUME_GROUP_NAME}/home /mnt/home
+
+
+# mkdir /mnt/etc
+# mount --bind /etc /mnt/etc
+
+# # mountinh EFI psrtition sd s boot psrtition
+# mount ${DISK}p1 /mnt/boot
 
 echo "use 'lsblk -f' to list information about all partition and devices"
-lsblk -f
+lsblk
 ls /mnt/boot
 ls /mnt
 
