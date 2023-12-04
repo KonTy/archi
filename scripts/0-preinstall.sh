@@ -72,9 +72,11 @@ lsblk
 echo "Press any key to continue..."
 read -n 1 -s key
 
-
 echo "Prepare UEFI boot partition"
 mkfs.fat -F32 ${DISK}p1
+
+modprobe dm_mod
+modprobe dm_crypt
 
 echo "Prepare LUKS volume"
 
@@ -90,18 +92,27 @@ lvcreate -L 8G -n tmp ${VOLUME_GROUP_NAME}
 lvcreate -L 30G -n var ${VOLUME_GROUP_NAME}
 lvcreate -l 100%FREE -n home ${VOLUME_GROUP_NAME}
 
+lvdisplay /dev/${VOLUME_GROUP_NAME}/*
+echo "Press any key to continue..."
+read -n 1 -s key
+
+lsblk -o NAME,TYPE,MOUNTPOINT | awk '$2=="crypt" {print $1}' | xargs -I{} cryptsetup luksDump /dev/{}
+echo "Press any key to continue..."
+read -n 1 -s key
+
 echo "Mounting everthing"
-cryptsetup luksOpen /dev/${VOLUME_GROUP_NAME}/root root
-cryptsetup luksOpen /dev/${VOLUME_GROUP_NAME}/var var
-cryptsetup luksOpen /dev/${VOLUME_GROUP_NAME}/tmp tmp
-cryptsetup luksOpen /dev/${VOLUME_GROUP_NAME}/home home
+cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-root root
+cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-var var
+cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-tmp tmp
+cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-home home
 
 mount /dev/mapper/root /mnt
 mount /dev/mapper/var /mnt/var
 mount /dev/mapper/tmp /mnt/tmp
-mount /dev/mapper/home /mnt/root/home
+mount /dev/mapper/home /mnt/home
 
-mount --bind /etc /mnt/root/etc
+mkdir /mnt/etc
+mount --bind /etc /mnt/etc
 
 # mountinh EFI psrtition sd s boot psrtition
 mount ${DISK}p1 /mnt/boot
