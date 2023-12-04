@@ -63,7 +63,7 @@ sgdisk -n 1::512M -t 1:ef00 -c 1:"EFI System" ${DISK}
 
 # Second partition (rest of the disk) 8309 is used for LUKS 
 # but it is not a hard standard you can fall back to 8300 as a generic Linux partition
-sgdisk -n 2:: -t 2:8309 -c 2:"Linux" ${DISK}
+sgdisk -n 2::-0 -t 2:8300 -c 2:"Linux" ${DISK}
 
 # lsblk
 # echo "Press any key to continue..."
@@ -75,6 +75,7 @@ mkfs.vfat -F32 -n "EFIBOOT" ${DISK}p1
 
 cryptsetup luksClose ${VOLUME_GROUP_NAME}-root
 umount ${DISK}p2
+wipefs --all ${DISK}p2
 mount | grep ${DISK}p2
 mkfs.btrfs -L ROOT ${DISK}p2
 
