@@ -72,6 +72,12 @@ sgdisk -n 2:: -t 2:8309 -c 2:"Linux" ${DISK}
 echo "Prepare UEFI boot partition"
 mkfs.vfat -F32 -n "EFIBOOT" ${DISK}p1
 
+
+cryptsetup luksClose ${VOLUME_GROUP_NAME}-root
+umount ${DISK}p2
+mount | grep ${DISK}p2
+mkfs.btrfs -L ROOT ${DISK}p2
+
 #mkfs.fat -F32 ${DISK}p1
 
 echo "Prepare LUKS volume"
@@ -81,7 +87,7 @@ echo -n "${LUKS_PASSWORD}" | cryptsetup -y -v luksFormat ${DISK}p2 -
 # open luks container and ROOT will be place holder 
 echo -n "${LUKS_PASSWORD}" | cryptsetup open ${DISK}p2 ROOT -
 
-mkfs.btrfs -f -L ROOT ${DISK}p2
+
 mount -t btrfs ${DISK}p2 /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
