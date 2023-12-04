@@ -100,16 +100,22 @@ lsblk -o NAME,TYPE,MOUNTPOINT | awk '$2=="crypt" {print $1}' | xargs -I{} crypts
 echo "Press any key to continue..."
 read -n 1 -s key
 
-echo "Mounting everthing"
-cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-root root
-cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-var var
-cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-tmp tmp
-cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-home home
+# echo "Mounting everthing"
+# cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-root root
+# cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-var var
+# cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-tmp tmp
+# cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-home home
 
-mount /dev/mapper/root /mnt
-mount /dev/mapper/var /mnt/var
-mount /dev/mapper/tmp /mnt/tmp
-mount /dev/mapper/home /mnt/home
+# mount /dev/mapper/root /mnt
+# mount /dev/mapper/var /mnt/var
+# mount /dev/mapper/tmp /mnt/tmp
+# mount /dev/mapper/home /mnt/home
+
+mount /dev/${VOLUME_GROUP_NAME}/root /mnt
+mount /dev/${VOLUME_GROUP_NAME}/var /mnt/var
+mount /dev/${VOLUME_GROUP_NAME}/tmp /mnt/tmp
+mount /dev/${VOLUME_GROUP_NAME}/home /mnt/home
+
 
 mkdir /mnt/etc
 mount --bind /etc /mnt/etc
