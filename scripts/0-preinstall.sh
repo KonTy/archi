@@ -91,7 +91,7 @@ btrfs subvolume create /mnt/@.snapshots
 
 umount /mnt
 
-set_option MOUNT_OPTIONS "noatime,compress=zstd,ssd,commit=120";;
+MOUNT_OPTIONS="noatime,compress=zstd,ssd,commit=120"
 # mount @ subvolume
 mount -o ${MOUNT_OPTIONS},subvol=@ ${DISK}p2 /mnt
 # make directories home, .snapshots, var, tmp
