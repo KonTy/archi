@@ -81,7 +81,7 @@ echo -n "${LUKS_PASSWORD}" | cryptsetup -y -v luksFormat ${DISK}p2 -
 # open luks container and ROOT will be place holder 
 echo -n "${LUKS_PASSWORD}" | cryptsetup open ${DISK}p2 ROOT -
 
-mkfs.btrfs -L ROOT ${DISK}p2
+mkfs.btrfs -f -L ROOT ${DISK}p2
 mount -t btrfs ${DISK}p2 /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
