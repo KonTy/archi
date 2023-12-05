@@ -110,6 +110,7 @@ arch-chroot /mnt /bin/bash -c "pacman -S --noconfirm grub efibootmgr; grub-insta
 umount -R /mnt
 cryptsetup close cryptlvm
 
+exit
 
 
 
