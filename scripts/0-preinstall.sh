@@ -55,6 +55,7 @@ echo -ne "
 "
 
 
+#!/bin/bash
 
 # Disk Information
 DISK="/dev/nvme0n1"
@@ -64,34 +65,37 @@ VOLUME_GROUP_NAME="archvg"
 timedatectl set-ntp true
 
 # Partitioning
-sgdisk --zap-all $DISK
-sgdisk --new=1:2048:4095 --typecode=1:ef02 $DISK
-sgdisk --new=2:4096:513MiB --typecode=2:ef00 --change-name=2:"EFI System" $DISK
-sgdisk --new=3:513MiB:100% --typecode=3:8300 --change-name=3:"ROOT" $DISK
+sgdisk -a 2048 -o $DISK
+
+# Create EFI System Partition (512M)
+sgdisk -n 1::+512M -t 1:ef00 -c 1:"EFI System" $DISK
+
+# Create ROOT Partition (Remaining space)
+sgdisk -n 2::-0 -t 2:8300 -c 2:"ROOT" $DISK
 
 # Encrypt ROOT Partition
-cryptsetup luksFormat --type luks2 /dev/nvme0n1p3
-cryptsetup open /dev/nvme0n1p3 cryptlvm
+cryptsetup luksFormat --type luks2 /dev/nvme0n1p2
+cryptsetup open /dev/nvme0n1p2 cryptlvm
 
 # Create LVM
 pvcreate /dev/mapper/cryptlvm
 vgcreate $VOLUME_GROUP_NAME /dev/mapper/cryptlvm
-lvcreate -L 50G $VOLUME_GROUP_NAME -n root
+
+# Create Swap File
+RAM_SIZE_GB=$(free --giga | awk '/^Mem:/ {print $2}')
+fallocate -l "${RAM_SIZE_GB}G" /mnt/swapfile
+chmod 600 /mnt/swapfile
+mkswap /mnt/swapfile
+swapon /mnt/swapfile
+
+# Create ROOT Logical Volume
+lvcreate -l 100%FREE $VOLUME_GROUP_NAME -n root
 
 # Format ROOT Partition
 mkfs.btrfs -L ROOT /dev/mapper/$VOLUME_GROUP_NAME-root
 
 # Mount ROOT Partition
 mount /dev/mapper/$VOLUME_GROUP_NAME-root /mnt
-
-# Determine RAM size in gigabytes
-RAM_SIZE_GB=$(free --giga | awk '/^Mem:/ {print $2}')
-
-# Create a swap file with size matching RAM size
-fallocate -l "${RAM_SIZE_GB}G" /mnt/swapfile
-chmod 600 /mnt/swapfile
-mkswap /mnt/swapfile
-swapon /mnt/swapfile
 
 # Bootstrap Arch Linux
 pacstrap /mnt base linux linux-firmware
@@ -105,8 +109,6 @@ arch-chroot /mnt /bin/bash -c "pacman -S --noconfirm grub efibootmgr; grub-insta
 # Exit chroot and unmount partitions
 umount -R /mnt
 cryptsetup close cryptlvm
-# reboot  TTT
-
 
 
 
