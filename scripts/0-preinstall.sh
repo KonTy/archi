@@ -105,7 +105,7 @@ arch-chroot /mnt /bin/bash -c "pacman -S --noconfirm grub efibootmgr; grub-insta
 # Exit chroot and unmount partitions
 umount -R /mnt
 cryptsetup close cryptlvm
-# reboot
+# reboot  TTT
 
 
 
