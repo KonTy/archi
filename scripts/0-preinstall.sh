@@ -54,189 +54,259 @@ echo -ne "
 -------------------------------------------------------------------------
 "
 
-VOLUME_GROUP_NAME="systemvg"
-
-sgdisk -a 2048 -o ${DISK} # new gpt disk 2048 alignment
-
-# First partition (512M)
-sgdisk -n 1::512M -t 1:ef00 -c 1:"EFI System" ${DISK}
-
-# Second partition (rest of the disk) 8309 is used for LUKS 
-# but it is not a hard standard you can fall back to 8300 as a generic Linux partition
-sgdisk -n 2::-0 -t 2:8300 -c 2:"Linux" ${DISK}
-
-# lsblk
-# echo "Press any key to continue..."
-# read -n 1 -s key
-
-echo "Prepare UEFI boot partition"
-mkfs.vfat -F32 -n "EFIBOOT" ${DISK}p1
 
 
-cryptsetup luksClose ${VOLUME_GROUP_NAME}-root
-umount ${DISK}p2
-wipefs --all ${DISK}p2
-mount | grep ${DISK}p2
-mkfs.btrfs -L ROOT ${DISK}p2
+# Disk Information
+DISK="/dev/nvme0n1"
+VOLUME_GROUP_NAME="archvg"
 
-#mkfs.fat -F32 ${DISK}p1
+# Unattended Installation
+timedatectl set-ntp true
 
-echo "Prepare LUKS volume"
+# Partitioning
+sgdisk --zap-all $DISK
+sgdisk --new=1:2048:4095 --typecode=1:ef02 $DISK
+sgdisk --new=2:4096:513MiB --typecode=2:ef00 --change-name=2:"EFI System" $DISK
+sgdisk --new=3:513MiB:100% --typecode=3:8300 --change-name=3:"ROOT" $DISK
 
-LUKS_PASSWORD="hooy"
-echo -n "${LUKS_PASSWORD}" | cryptsetup -y -v luksFormat ${DISK}p2 -
-# open luks container and ROOT will be place holder 
-echo -n "${LUKS_PASSWORD}" | cryptsetup open ${DISK}p2 ROOT -
+# Encrypt ROOT Partition
+cryptsetup luksFormat --type luks2 /dev/nvme0n1p3
+cryptsetup open /dev/nvme0n1p3 cryptlvm
+
+# Create LVM
+pvcreate /dev/mapper/cryptlvm
+vgcreate $VOLUME_GROUP_NAME /dev/mapper/cryptlvm
+lvcreate -L 50G $VOLUME_GROUP_NAME -n root
+
+# Format ROOT Partition
+mkfs.btrfs -L ROOT /dev/mapper/$VOLUME_GROUP_NAME-root
+
+# Mount ROOT Partition
+mount /dev/mapper/$VOLUME_GROUP_NAME-root /mnt
+
+# Determine RAM size in gigabytes
+RAM_SIZE_GB=$(free --giga | awk '/^Mem:/ {print $2}')
+
+# Create a swap file with size matching RAM size
+fallocate -l "${RAM_SIZE_GB}G" /mnt/swapfile
+chmod 600 /mnt/swapfile
+mkswap /mnt/swapfile
+swapon /mnt/swapfile
+
+# Bootstrap Arch Linux
+pacstrap /mnt base linux linux-firmware
+
+# Generate fstab
+genfstab -U /mnt >> /mnt/etc/fstab
+
+# Chroot into the new system
+arch-chroot /mnt /bin/bash -c "pacman -S --noconfirm grub efibootmgr; grub-install --target=x86_64-efi --efi-directory=/boot/efi; grub-mkconfig -o /boot/grub/grub.cfg"
+
+# Exit chroot and unmount partitions
+umount -R /mnt
+cryptsetup close cryptlvm
+# reboot
 
 
-mount -t btrfs ${DISK}p2 /mnt
-btrfs subvolume create /mnt/@
-btrfs subvolume create /mnt/@home
-btrfs subvolume create /mnt/@var
-btrfs subvolume create /mnt/@tmp
-btrfs subvolume create /mnt/@.snapshots
-
-umount /mnt
-
-MOUNT_OPTIONS="noatime,compress=zstd,ssd,commit=120"
-# mount @ subvolume
-mount -o ${MOUNT_OPTIONS},subvol=@ ${DISK}p2 /mnt
-# make directories home, .snapshots, var, tmp
-mkdir -p /mnt/{home,var,tmp,.snapshots}
-mount -o ${MOUNT_OPTIONS},subvol=@home ${partition3} /mnt/home
-mount -o ${MOUNT_OPTIONS},subvol=@tmp ${partition3} /mnt/tmp
-mount -o ${MOUNT_OPTIONS},subvol=@var ${partition3} /mnt/var
-mount -o ${MOUNT_OPTIONS},subvol=@.snapshots ${partition3} /mnt/.snapshots
-
-echo ENCRYPTED_PARTITION_UUID=$(blkid -s UUID -o value ${partition3}) >> $CONFIGS_DIR/setup.conf
-
-# mount target
-mkdir -p /mnt/boot/efi
-mount -t vfat -L EFIBOOT /mnt/boot/
-
-if ! grep -qs '/mnt' /proc/mounts; then
-    echo "Drive is not mounted can not continue"
-    echo "Rebooting in 3 Seconds ..." && sleep 1
-    echo "Rebooting in 2 Seconds ..." && sleep 1
-    echo "Rebooting in 1 Second ..." && sleep 1
-    echo "Press any key to continue..."
-    read -n 1 -s key
-
-#    reboot now
-fi
 
 
-# echo "Make a LVM and filesystems and a system volume group"
-# pvcreate /dev/mapper/ROOT
-# vgcreate ${VOLUME_GROUP_NAME} /dev/mapper/ROOT
-# # lvcreate -L ${RAM_SIZE} -n swap ${VOLUME_GROUP_NAME}
-# lvcreate -L 50G -n root ${VOLUME_GROUP_NAME}
-# lvcreate -L 8G -n tmp ${VOLUME_GROUP_NAME}
-# lvcreate -L 30G -n var ${VOLUME_GROUP_NAME}
-# lvcreate -l 100%FREE -n home ${VOLUME_GROUP_NAME}
 
-# lvdisplay /dev/${VOLUME_GROUP_NAME}/*
-# echo "Press any key to continue..."
-# read -n 1 -s key
 
-# # cryptsetup luksDump /dev/*
+
+
+
+
+
+
+
+
+
+
+
+
+# # VOLUME_GROUP_NAME="systemvg"
+
+# # sgdisk -a 2048 -o ${DISK} # new gpt disk 2048 alignment
+
+# # # First partition (512M)
+# # sgdisk -n 1::512M -t 1:ef00 -c 1:"EFI System" ${DISK}
+
+# # # Second partition (rest of the disk) 8309 is used for LUKS 
+# # # but it is not a hard standard you can fall back to 8300 as a generic Linux partition
+# # sgdisk -n 2::-0 -t 2:8300 -c 2:"Linux" ${DISK}
+
+# # # lsblk
+# # # echo "Press any key to continue..."
+# # # read -n 1 -s key
+
+# # echo "Prepare UEFI boot partition"
+# # mkfs.vfat -F32 -n "EFIBOOT" ${DISK}p1
+
+
+# # cryptsetup luksClose ${VOLUME_GROUP_NAME}-root
+# # umount ${DISK}p2
+# # wipefs --all ${DISK}p2
+# # mount | grep ${DISK}p2
+# # mkfs.btrfs -L ROOT ${DISK}p2
+
+# # #mkfs.fat -F32 ${DISK}p1
+
+# # echo "Prepare LUKS volume"
+
+# # LUKS_PASSWORD="hooy"
+# # echo -n "${LUKS_PASSWORD}" | cryptsetup -y -v luksFormat ${DISK}p2 -
+# # # open luks container and ROOT will be place holder 
+# # echo -n "${LUKS_PASSWORD}" | cryptsetup open ${DISK}p2 ROOT -
+# # mount -t btrfs ${DISK}p2 /mnt
+
+
+# # btrfs subvolume create /mnt/@
+# # btrfs subvolume create /mnt/@home
+# # btrfs subvolume create /mnt/@var
+# # btrfs subvolume create /mnt/@tmp
+# # btrfs subvolume create /mnt/@.snapshots
+
+# # umount /mnt
+
+# # MOUNT_OPTIONS="noatime,compress=zstd,ssd,commit=120"
+# # # mount @ subvolume
+# # mount -o ${MOUNT_OPTIONS},subvol=@ ${DISK}p2 /mnt
+# # # make directories home, .snapshots, var, tmp
+# # mkdir -p /mnt/{home,var,tmp,.snapshots}
+# # mount -o ${MOUNT_OPTIONS},subvol=@home ${partition3} /mnt/home
+# # mount -o ${MOUNT_OPTIONS},subvol=@tmp ${partition3} /mnt/tmp
+# # mount -o ${MOUNT_OPTIONS},subvol=@var ${partition3} /mnt/var
+# # mount -o ${MOUNT_OPTIONS},subvol=@.snapshots ${partition3} /mnt/.snapshots
+
+# # echo ENCRYPTED_PARTITION_UUID=$(blkid -s UUID -o value ${partition3}) >> $CONFIGS_DIR/setup.conf
+
+# # # mount target
+# # mkdir -p /mnt/boot/efi
+# # mount -t vfat -L EFIBOOT /mnt/boot/
+
+# # if ! grep -qs '/mnt' /proc/mounts; then
+# #     echo "Drive is not mounted can not continue"
+# #     echo "Rebooting in 3 Seconds ..." && sleep 1
+# #     echo "Rebooting in 2 Seconds ..." && sleep 1
+# #     echo "Rebooting in 1 Second ..." && sleep 1
+# #     echo "Press any key to continue..."
+# #     read -n 1 -s key
+
+# # #    reboot now
+# # fi
+
+
+# # echo "Make a LVM and filesystems and a system volume group"
+# # pvcreate /dev/mapper/ROOT
+# # vgcreate ${VOLUME_GROUP_NAME} /dev/mapper/ROOT
+# # # lvcreate -L ${RAM_SIZE} -n swap ${VOLUME_GROUP_NAME}
+# # lvcreate -L 50G -n root ${VOLUME_GROUP_NAME}
+# # lvcreate -L 8G -n tmp ${VOLUME_GROUP_NAME}
+# # lvcreate -L 30G -n var ${VOLUME_GROUP_NAME}
+# # lvcreate -l 100%FREE -n home ${VOLUME_GROUP_NAME}
+
+# # lvdisplay /dev/${VOLUME_GROUP_NAME}/*
 # # echo "Press any key to continue..."
 # # read -n 1 -s key
 
-# # echo "Mounting everthing"
-# # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-root root
-# # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-var var
-# # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-tmp tmp
-# # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-home home
+# # # cryptsetup luksDump /dev/*
+# # # echo "Press any key to continue..."
+# # # read -n 1 -s key
 
-# # mount /dev/mapper/root /mnt
-# # mount /dev/mapper/var /mnt/var
-# # mount /dev/mapper/tmp /mnt/tmp
-# # mount /dev/mapper/home /mnt/home
+# # # echo "Mounting everthing"
+# # # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-root root
+# # # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-var var
+# # # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-tmp tmp
+# # # cryptsetup luksOpen /dev/mapper/${VOLUME_GROUP_NAME}-home home
 
-# mount /dev/${VOLUME_GROUP_NAME}/root /mnt
-# mount /dev/${VOLUME_GROUP_NAME}/var /mnt/var
-# mount /dev/${VOLUME_GROUP_NAME}/tmp /mnt/tmp
-# mount /dev/${VOLUME_GROUP_NAME}/home /mnt/home
+# # # mount /dev/mapper/root /mnt
+# # # mount /dev/mapper/var /mnt/var
+# # # mount /dev/mapper/tmp /mnt/tmp
+# # # mount /dev/mapper/home /mnt/home
 
-
-# mkdir /mnt/etc
-# mount --bind /etc /mnt/etc
-
-# # mountinh EFI psrtition sd s boot psrtition
-# mount ${DISK}p1 /mnt/boot
-
-echo "use 'lsblk -f' to list information about all partition and devices"
-lsblk
-ls /mnt/boot
-ls /mnt
-
-echo "Press any key to continue..."
-read -n 1 -s key
+# # mount /dev/${VOLUME_GROUP_NAME}/root /mnt
+# # mount /dev/${VOLUME_GROUP_NAME}/var /mnt/var
+# # mount /dev/${VOLUME_GROUP_NAME}/tmp /mnt/tmp
+# # mount /dev/${VOLUME_GROUP_NAME}/home /mnt/home
 
 
-# /etc: Use --bind to mount the existing /etc from the host system to the chroot environment.
-# Other directories (/var, /tmp, /home, /boot): Directly mount the logical volumes to the corresponding directories in the chroot environment.
+# # mkdir /mnt/etc
+# # mount --bind /etc /mnt/etc
 
-arch-chroot /mnt /bin/bash <<EOF
-    genfstab -L -p /mnt >> /mnt/etc/fstab
-EOF
-echo " 
-  Generated/mnt/etc/fstab:
-"
-ls /mnt/etc
-cat /mnt/etc/fstab
+# # # mountinh EFI psrtition sd s boot psrtition
+# # mount ${DISK}p1 /mnt/boot
 
-echo "Press any key to continue for fstab..."
-read -n 1 -s key
+# echo "use 'lsblk -f' to list information about all partition and devices"
+# lsblk
+# ls /mnt/boot
+# ls /mnt
 
-echo -ne "
+# echo "Press any key to continue..."
+# read -n 1 -s key
+
+
+# # /etc: Use --bind to mount the existing /etc from the host system to the chroot environment.
+# # Other directories (/var, /tmp, /home, /boot): Directly mount the logical volumes to the corresponding directories in the chroot environment.
+
+# arch-chroot /mnt /bin/bash <<EOF
+#     genfstab -L -p /mnt >> /mnt/etc/fstab
+# EOF
+# echo " 
+#   Generated/mnt/etc/fstab:
+# "
+# ls /mnt/etc
+# cat /mnt/etc/fstab
+
+# echo "Press any key to continue for fstab..."
+# read -n 1 -s key
+
+# echo -ne "
 -------------------------------------------------------------------------
                     GRUB BIOS Bootloader Install & Check
 -------------------------------------------------------------------------
 "
 
-# arch-chroot /mnt
-# grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub
-# grub-mkconfig -o /boot/grub/grub.cfg
+# # arch-chroot /mnt
+# # grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub
+# # grub-mkconfig -o /boot/grub/grub.cfg
 
 
-if [[ ! -d "/sys/firmware/efi" ]]; then
-    echo "System is in EFI mode"
+# if [[ ! -d "/sys/firmware/efi" ]]; then
+#     echo "System is in EFI mode"
 
-    arch-chroot /mnt /bin/bash <<EOF
-        grub-install --boot-directory=/mnt/boot ${DISK}
-        grub-mkconfig -o /boot/grub/grub.cfg
-EOF
+#     arch-chroot /mnt /bin/bash <<EOF
+#         grub-install --boot-directory=/mnt/boot ${DISK}
+#         grub-mkconfig -o /boot/grub/grub.cfg
+# EOF
 
-#    efibootmgr -c -d ${DISK} -p 1 -L "Arch Linux" -l /EFI/grub/grubx64.efi
+# #    efibootmgr -c -d ${DISK} -p 1 -L "Arch Linux" -l /EFI/grub/grubx64.efi
 
-else
-    pacstrap /mnt efibootmgr --noconfirm --needed
-fi
+# else
+#     pacstrap /mnt efibootmgr --noconfirm --needed
+# fi
 
-echo "Press any key to continue..."
-read -n 1 -s key
+# echo "Press any key to continue..."
+# read -n 1 -s key
 
-echo -ne "
--------------------------------------------------------------------------
-                    Checking for low memory systems <8G
--------------------------------------------------------------------------
-"
+# echo -ne "
+# -------------------------------------------------------------------------
+#                     Checking for low memory systems <8G
+# -------------------------------------------------------------------------
+# "
 
 
-# Variables
-SWAP_SIZE="$TOTAL_RAM"  # Size of the swap file in megabytes
-SWAP_DIR="/opt/swap"  # Directory to store the swap file
+# # Variables
+# SWAP_SIZE="$TOTAL_RAM"  # Size of the swap file in megabytes
+# SWAP_DIR="/opt/swap"  # Directory to store the swap file
 
-arch-chroot /mnt /bin/bash <<EOF
-  chattr +C ${SWAP_DIR}  # apply NOCOW, btrfs needs that.
-  dd if=/dev/zero of=${SWAP_DIR}/swapfile bs=1M count=${SWAP_SIZE} status=progress
-  chmod 600 ${SWAP_DIR}/swapfile  # set permissions.
-  chown root ${SWAP_DIR}/swapfile
-  mkswap ${SWAP_DIR}/swapfile
-  swapon ${SWAP_DIR}/swapfile
-EOF
+# arch-chroot /mnt /bin/bash <<EOF
+#   chattr +C ${SWAP_DIR}  # apply NOCOW, btrfs needs that.
+#   dd if=/dev/zero of=${SWAP_DIR}/swapfile bs=1M count=${SWAP_SIZE} status=progress
+#   chmod 600 ${SWAP_DIR}/swapfile  # set permissions.
+#   chown root ${SWAP_DIR}/swapfile
+#   mkswap ${SWAP_DIR}/swapfile
+#   swapon ${SWAP_DIR}/swapfile
+# EOF
 
 
 echo -ne "
