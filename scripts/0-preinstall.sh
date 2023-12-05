@@ -54,7 +54,6 @@ echo -ne "
 -------------------------------------------------------------------------
 "
 
-
 #!/bin/bash
 
 # Disk Information
@@ -97,6 +96,11 @@ mkfs.btrfs -L ROOT /dev/mapper/$VOLUME_GROUP_NAME-root
 # Mount ROOT Partition
 mount /dev/mapper/$VOLUME_GROUP_NAME-root /mnt
 
+# Mount EFI System Partition
+mkdir -p /mnt/boot/efi
+mkfs.fat -F32 /dev/nvme0n1p1
+mount /dev/nvme0n1p1 /mnt/boot/efi
+
 # Bootstrap Arch Linux
 pacstrap /mnt base linux linux-firmware
 
@@ -104,28 +108,11 @@ pacstrap /mnt base linux linux-firmware
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # Chroot into the new system
-arch-chroot /mnt /bin/bash -c "pacman -S --noconfirm grub efibootmgr; grub-install --target=x86_64-efi --efi-directory=/boot/efi; grub-mkconfig -o /boot/grub/grub.cfg"
-
-# Exit chroot and unmount partitions
-umount -R /mnt
-cryptsetup close cryptlvm
-
-exit
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+arch-chroot /mnt /bin/bash -c "
+  pacman -S --noconfirm grub efibootmgr;
+  grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB;
+  grub-mkconfig -o /boot/grub/grub.cfg
+"
 
 # # VOLUME_GROUP_NAME="systemvg"
 
@@ -263,7 +250,7 @@ exit
 # echo "Press any key to continue for fstab..."
 # read -n 1 -s key
 
-# echo -ne "
+echo -ne "
 -------------------------------------------------------------------------
                     GRUB BIOS Bootloader Install & Check
 -------------------------------------------------------------------------
@@ -327,6 +314,11 @@ arch-chroot /mnt /bin/bash <<EOF
     cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
 EOF
 
+
+# # Exit chroot and unmount partitions
+# umount -R /mnt
+# cryptsetup close cryptlvm
+# reboot
 
 
 
