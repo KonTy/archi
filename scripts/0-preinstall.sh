@@ -110,8 +110,12 @@ genfstab -U /mnt >> /mnt/etc/fstab
 # Chroot into the new system
 arch-chroot /mnt /bin/bash -c "
   pacman -S --noconfirm grub efibootmgr;
+  efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/GRUB/grubx64.efi --label "GRUB"
+
   grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB;
+  grub-install --recheck --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
   grub-mkconfig -o /boot/grub/grub.cfg
+
 "
 
 # # VOLUME_GROUP_NAME="systemvg"
