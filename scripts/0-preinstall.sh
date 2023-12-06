@@ -118,6 +118,15 @@ arch-chroot /mnt /bin/bash -c "
 
 "
 
+
+# efibootmgr -b XXXX -B  # Replace XXXX with the boot entry number
+efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/GRUB/grubx64.efi --label "GRUB"
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
+pacman -S refind-efi
+refind-install
+
+
 # # VOLUME_GROUP_NAME="systemvg"
 
 # # sgdisk -a 2048 -o ${DISK} # new gpt disk 2048 alignment
