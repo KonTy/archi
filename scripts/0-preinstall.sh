@@ -67,7 +67,7 @@ timedatectl set-ntp true
 sgdisk -a 2048 -o $DISK
 
 # Create EFI System Partition (512M)
-sgdisk -n 1::+512M -t 1:ef00 -c 1:"EFI System" $DISK
+sgdisk -n 1:1M:+600M -t 1:ef00 -c 1:"EFI System" $DISK
 
 # Create ROOT Partition (Remaining space)
 sgdisk -n 2::-0 -t 2:8300 -c 2:"ROOT" $DISK
@@ -80,13 +80,6 @@ cryptsetup open /dev/nvme0n1p2 cryptlvm
 pvcreate /dev/mapper/cryptlvm
 vgcreate $VOLUME_GROUP_NAME /dev/mapper/cryptlvm
 
-# Create Swap File
-RAM_SIZE_GB=$(free --giga | awk '/^Mem:/ {print $2}')
-fallocate -l "${RAM_SIZE_GB}G" /mnt/swapfile
-chmod 600 /mnt/swapfile
-mkswap /mnt/swapfile
-swapon /mnt/swapfile
-
 # Create ROOT Logical Volume
 lvcreate -l 100%FREE $VOLUME_GROUP_NAME -n root
 
@@ -98,8 +91,9 @@ mount /dev/mapper/$VOLUME_GROUP_NAME-root /mnt
 
 # Mount EFI System Partition
 mkdir -p /mnt/boot/efi
-mkfs.fat -F32 /dev/nvme0n1p1
-mount /dev/nvme0n1p1 /mnt/boot/efi
+mkfs.fat -F 32 /dev/nvme0n1p1
+mount /dev/nvme0n1p1 /mnt/boot
+#mount /dev/nvme0n1p1 /mnt/boot/efi
 
 # Bootstrap Arch Linux
 pacstrap /mnt base linux linux-firmware
@@ -110,21 +104,30 @@ genfstab -U /mnt >> /mnt/etc/fstab
 # Chroot into the new system
 arch-chroot /mnt /bin/bash -c "
   pacman -S --noconfirm grub efibootmgr;
-  efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/GRUB/grubx64.efi --label "GRUB"
-
+  efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/GRUB/grubx64.efi --label "GRUB";
   grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB;
-  grub-install --recheck --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
-  grub-mkconfig -o /boot/grub/grub.cfg
-
+  grub-install --recheck --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB;
+  grub-mkconfig -o /boot/grub/grub.cfg;
 "
 
 
-# efibootmgr -b XXXX -B  # Replace XXXX with the boot entry number
-efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/GRUB/grubx64.efi --label "GRUB"
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
-grub-mkconfig -o /boot/grub/grub.cfg
-pacman -S refind-efi
-refind-install
+# # efibootmgr -b XXXX -B  # Replace XXXX with the boot entry number
+# efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/GRUB/grubx64.efi --label "GRUB"
+# grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
+# grub-mkconfig -o /boot/grub/grub.cfg
+# pacman -S refind-efi
+# refind-install
+
+
+
+# # Create Swap File
+# RAM_SIZE_GB=$(free --giga | awk '/^Mem:/ {print $2}')
+# fallocate -l "${RAM_SIZE_GB}G" /mnt/swapfile
+# chmod 600 /mnt/swapfile
+# mkswap /mnt/swapfile
+# swapon /mnt/swapfile
+
+
 
 
 # # VOLUME_GROUP_NAME="systemvg"
