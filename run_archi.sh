@@ -28,6 +28,16 @@ source $CONFIGS_DIR/setup.conf
 # adding more debug info
 ( stdbuf -oL bash -x $SCRIPTS_DIR/0-preinstall.sh ) 2>&1 | tee -a "$output_file"
 # ( bash $SCRIPTS_DIR/0-preinstall.sh ) 2>&1 | tee -a "$output_file"
+
+
+echo -ne "
+-------------------------------------------------------------------------
+                   EXITING NOW
+-------------------------------------------------------------------------
+"
+exit
+
+
 ( arch-chroot /mnt $SCRIPTS_DIR/1-setup.sh ) 2>&1 | tee -a "$output_file"
 
 echo "Desktop Environment is $DESKTOP_ENV" 2>&1 | tee -a "$output_file"
