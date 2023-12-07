@@ -95,12 +95,6 @@ mkfs.fat -F 32 /dev/nvme0n1p1
 mount /dev/nvme0n1p1 /mnt/boot
 #mount /dev/nvme0n1p1 /mnt/boot/efi
 
-# Bootstrap Arch Linux
-pacstrap /mnt base linux linux-firmware
-
-# Generate fstab
-genfstab -p -U /mnt >> /mnt/etc/fstab
-
 # Chroot into the new system
 arch-chroot /mnt /bin/bash -c "
   ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime;
@@ -112,6 +106,20 @@ arch-chroot /mnt /bin/bash -c "
   grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub --boot-directory=/boot/efi --debug;
   grub-install --recheck --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub;
   grub-mkconfig -o /boot/grub/grub.cfg;
+  echo ----- LS BOOT EFI
+  ls /boot/EFI/BOOT/BOOTx64.EFI
+  SOURCE_PATH="/boot/EFI/BOOT/BOOTx64.EFI"  # Adjust based on your system
+  DEST_PATH="/boot/EFI/Microsoft/Boot/bootmgfw.efi"
+  mkdir -p "$(dirname $DEST_PATH)"
+  cp "$SOURCE_PATH" "$DEST_PATH"
+  echo "Arch Linux boot loader copied to Microsoft Boot directory."
+
+  # Bootstrap Arch Linux
+  pacstrap / base linux linux-firmware
+
+  # Generate fstab
+  genfstab -p -U / >> /etc/fstab
+
 "
 
 
