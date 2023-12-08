@@ -93,7 +93,10 @@ mount /dev/mapper/$VOLUME_GROUP_NAME-root /mnt
 mkdir -p /mnt/boot/efi
 mkfs.fat -F 32 /dev/nvme0n1p1
 mount /dev/nvme0n1p1 /mnt/boot
+
+# mount /dev/nvme0n1p2 /mnt
 #mount /dev/nvme0n1p1 /mnt/boot/efi
+genfstab -p -U / >> /mnt/etc/fstab;
 
 # Chroot into the new system
 arch-chroot /mnt /bin/bash <<EOF
@@ -110,10 +113,11 @@ arch-chroot /mnt /bin/bash <<EOF
   efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/GRUB/grubx64.efi --label "grub";
 
   refind-install
+  mkrlconf
   efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/refind/refind_x64.efi --label "rEFInd Boot Manager" --unicode -e 3
 EOF
 
-
+umount -R /mnt
 
 
 
