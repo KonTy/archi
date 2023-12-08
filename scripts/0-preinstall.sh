@@ -98,15 +98,19 @@ mount /dev/nvme0n1p1 /mnt/boot
 # Chroot into the new system
 arch-chroot /mnt /bin/bash <<EOF
   ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime;
-  echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
-  echo "en_US ISO-8859-1" >> /etc/locale.gen
-  locale-gen
-  pacman -S --noconfirm grub efibootmgr;
-  efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/GRUB/grubx64.efi --label "GRUB";
+  echo "en_US.UTF-8 UTF-8" > /etc/locale.gen;
+  echo "en_US ISO-8859-1" >> /etc/locale.gen;
+  locale-gen;
+  pacman -S --noconfirm grub efibootmgr refind;
   grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub --boot-directory=/boot/efi --debug;
   grub-install --recheck --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub;
+  grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub;
   grub-mkconfig -o /boot/grub/grub.cfg;
   genfstab -p -U / >> /etc/fstab;
+  efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/GRUB/grubx64.efi --label "grub";
+
+  refind-install
+  efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/refind/refind_x64.efi --label "rEFInd Boot Manager" --unicode -e 3
 EOF
 
 
