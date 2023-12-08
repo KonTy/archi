@@ -106,20 +106,17 @@ arch-chroot /mnt /bin/bash -c "
   grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub --boot-directory=/boot/efi --debug;
   grub-install --recheck --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub;
   grub-mkconfig -o /boot/grub/grub.cfg;
-  echo ----- LS BOOT EFI
-  ls /boot/EFI/BOOT/BOOTx64.EFI
-  SOURCE_PATH="/boot/EFI/BOOT/BOOTx64.EFI"  # Adjust based on your system
-  DEST_PATH="/boot/EFI/Microsoft/Boot/bootmgfw.efi"
-  mkdir -p "$(dirname $DEST_PATH)"
-  cp "$SOURCE_PATH" "$DEST_PATH"
-  echo "Arch Linux boot loader copied to Microsoft Boot directory."
-
+  echo ----- LS BOOT EFI;
+  ls /boot/EFI/BOOT/BOOTx64.EFI;
+  SOURCE_PATH="/boot/EFI/BOOT/BOOTx64.EFI"  # Adjust based on your system;
+  DEST_PATH="/boot/EFI/Microsoft/Boot/bootmgfw.efi";
+  mkdir -p "$(dirname $DEST_PATH)";
+  cp "$SOURCE_PATH" "$DEST_PATH";
+  echo "Arch Linux boot loader copied to Microsoft Boot directory."l;
   # Bootstrap Arch Linux
-  pacstrap / base linux linux-firmware
-
+  pacstrap / base linux linux-firmware;
   # Generate fstab
-  genfstab -p -U / >> /etc/fstab
-
+  genfstab -p -U / >> /etc/fstab;
 "
 
 
