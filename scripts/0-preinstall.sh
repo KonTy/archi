@@ -73,8 +73,8 @@ sgdisk -n 1:1M:+600M -t 1:ef00 -c 1:"EFI System" $DISK
 sgdisk -n 2::-0 -t 2:8300 -c 2:"ROOT" $DISK
 
 # Encrypt ROOT Partition
-cryptsetup luksFormat --type luks2 /dev/nvme0n1p2
-cryptsetup open /dev/nvme0n1p2 cryptlvm
+echo -n "qqq" | cryptsetup luksFormat --type luks2 /dev/nvme0n1p2
+echo -n "qqq" | cryptsetup open /dev/nvme0n1p2 cryptlvm
 
 # Create LVM
 pvcreate /dev/mapper/cryptlvm
@@ -96,7 +96,7 @@ mount /dev/nvme0n1p1 /mnt/boot
 #mount /dev/nvme0n1p1 /mnt/boot/efi
 
 # Chroot into the new system
-arch-chroot /mnt /bin/bash -c '
+arch-chroot /mnt /bin/bash <<EOF
   ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime;
   echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
   echo "en_US ISO-8859-1" >> /etc/locale.gen
@@ -107,7 +107,7 @@ arch-chroot /mnt /bin/bash -c '
   grub-install --recheck --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub;
   grub-mkconfig -o /boot/grub/grub.cfg;
   genfstab -p -U / >> /etc/fstab;
-'
+EOF
 
 
 
@@ -350,7 +350,7 @@ arch-chroot /mnt /bin/bash <<EOF
     # echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
     echo "keyserver hkps://hkps.pool.sks-keyservers.net" >> /mnt/etc/pacman.d/gnupg/gpg.conf
 
-    cp -R ${SCRIPT_DIR} /mnt/${SCRIPTHOME_DIR}
+    cp -R ${SCRIPT_DIR} /${SCRIPTHOME_DIR}
     cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
 EOF
 

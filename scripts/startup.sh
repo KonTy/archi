@@ -282,9 +282,14 @@ diskpart () {
 
 # @description Gather username and password to be used for installation. 
 userinfo () {
-    read -p "Please enter your username: " username
-    set_option USERNAME ${username,,} # convert to lower case as in issue #109 
+    # read -p "Please enter your username: " username
+    # set_option USERNAME ${username,,} # convert to lower case as in issue #109 
+    # set_password "PASSWORD"
+
+    set_option USERNAME "asdf" # convert to lower case as in issue #109 
     set_password "PASSWORD"
+
+
 
     random_string=$(tr -dc 'a-z0-9' < /dev/urandom | head -c 6)
     nameofmachine="mini$random_string"
