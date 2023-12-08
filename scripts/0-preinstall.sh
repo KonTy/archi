@@ -96,7 +96,7 @@ mount /dev/nvme0n1p1 /mnt/boot
 #mount /dev/nvme0n1p1 /mnt/boot/efi
 
 # Chroot into the new system
-arch-chroot /mnt /bin/bash -c "
+arch-chroot /mnt /bin/bash -c '
   ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime;
   echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
   echo "en_US ISO-8859-1" >> /etc/locale.gen
@@ -108,16 +108,16 @@ arch-chroot /mnt /bin/bash -c "
   grub-mkconfig -o /boot/grub/grub.cfg;
   echo ----- LS BOOT EFI;
   ls /boot/EFI/BOOT/BOOTx64.EFI;
-  SOURCE_PATH="/boot/EFI/BOOT/BOOTx64.EFI"  # Adjust based on your system;
+  SOURCE_PATH="/boot/EFI/BOOT/BOOTx64.EFI"
   DEST_PATH="/boot/EFI/Microsoft/Boot/bootmgfw.efi";
   mkdir -p "$(dirname $DEST_PATH)";
   cp "$SOURCE_PATH" "$DEST_PATH";
-  echo "Arch Linux boot loader copied to Microsoft Boot directory."l;
+  echo "Arch Linux boot loader copied to Microsoft Boot directory.";
   # Bootstrap Arch Linux
   pacstrap / base linux linux-firmware;
   # Generate fstab
   genfstab -p -U / >> /etc/fstab;
-"
+'
 
 
 # # efibootmgr -b XXXX -B  # Replace XXXX with the boot entry number
