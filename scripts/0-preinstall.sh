@@ -98,14 +98,15 @@ mount /dev/nvme0n1p2 /mnt
 # Mount EFI System Partition
 # mkdir -p /mnt/boot/efi
 
-# Install base system and systemd-boot
-pacstrap /mnt base systemd-boot
-
 # Generate fstab
+mkdir -p /mnt/etc
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # Chroot into the installed system
 arch-chroot /mnt /bin/bash <<EOF
+
+  # Install base system and systemd-boot
+  pacstrap / base systemd-boot
 
   # Set the timezone
   ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime
