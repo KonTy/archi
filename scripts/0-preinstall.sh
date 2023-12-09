@@ -87,16 +87,64 @@ lvcreate -l 100%FREE $VOLUME_GROUP_NAME -n root
 mkfs.btrfs -L ROOT /dev/mapper/$VOLUME_GROUP_NAME-root
 
 # Mount ROOT Partition
-mount /dev/mapper/$VOLUME_GROUP_NAME-root /mnt
+# mount /dev/mapper/$VOLUME_GROUP_NAME-root /mnt
+
+mkfs.fat -F 32 /dev/nvme0n1p1
+
+# Assuming you've already partitioned your drive (EFI partition at /dev/nvme0n1p1, root partition at /dev/nvme0n1p2)
+# Mount the root partition
+mount /dev/nvme0n1p2 /mnt
 
 # Mount EFI System Partition
-mkdir -p /mnt/boot/efi
-mkfs.fat -F 32 /dev/nvme0n1p1
-mount /dev/nvme0n1p1 /mnt/boot
+# mkdir -p /mnt/boot/efi
 
-# mount /dev/nvme0n1p2 /mnt
-#mount /dev/nvme0n1p1 /mnt/boot/efi
-genfstab -p -U / >> /mnt/etc/fstab;
+# Install base system and systemd-boot
+pacstrap /mnt base systemd-boot
+
+# Generate fstab
+genfstab -U /mnt >> /mnt/etc/fstab
+
+# Chroot into the installed system
+arch-chroot /mnt /bin/bash <<EOF
+
+  # Set the timezone
+  ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime
+
+  # Generate locale
+  echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+  echo "en_US ISO-8859-1" >> /etc/locale.gen
+  locale-gen
+
+  # Set locale
+  echo "LANG=en_US.UTF-8" > /etc/locale.conf
+
+  # Install systemd-boot to the EFI system partition
+  bootctl install
+
+  # Create systemd-boot configuration
+  echo "default arch" > /boot/loader/loader.conf
+  echo "timeout 3" >> /boot/loader/loader.conf
+  echo "console-mode max" >> /boot/loader/loader.conf
+
+  # Create Arch Linux boot entry
+  echo "title Arch Linux" > /boot/loader/entries/arch.conf
+  echo "linux /vmlinuz-linux" >> /boot/loader/entries/arch.conf
+  echo "initrd /initramfs-linux.img" >> /boot/loader/entries/arch.conf
+  echo "options root=PARTUUID=$(blkid -s PARTUUID -o value /dev/nvme0n1p2) rw" >> /boot/loader/entries/arch.conf
+
+  # Set the root password (change 'your_password' to your desired password)
+  echo 'root:qqq' | chpasswd
+
+  # Exit the chroot environment
+EOF
+
+# Unmount partitions
+umount -R /mnt
+
+echo "Installation complete. You can now reboot your system."
+
+
+
 
 # Chroot into the new system
 arch-chroot /mnt /bin/bash <<EOF
@@ -105,21 +153,20 @@ arch-chroot /mnt /bin/bash <<EOF
   echo "en_US ISO-8859-1" >> /etc/locale.gen;
   locale-gen;
   pacman -S --noconfirm grub efibootmgr refind;
-  grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub --boot-directory=/boot/efi --debug;
+  grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub --boot-directory=/boot/efi --debug --removable; 
   grub-install --recheck --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub;
-  grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub;
-  grub-mkconfig -o /boot/grub/grub.cfg;
+    grub-mkconfig -o /boot/grub/grub.cfg;
   genfstab -p -U / >> /etc/fstab;
   efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/GRUB/grubx64.efi --label "grub";
-
-  refind-install
-  mkrlconf
-  efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/refind/refind_x64.efi --label "rEFInd Boot Manager" --unicode -e 3
 EOF
 
 umount -R /mnt
 
 
+
+  # refind-install
+  # mkrlconf
+  # efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/refind/refind_x64.efi --label "rEFInd Boot Manager" --unicode -e 3
 
   # echo ----- LS BOOT EFI;
   # ls /boot/EFI/BOOT/BOOTx64.EFI;
