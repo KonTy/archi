@@ -33,10 +33,10 @@ jobs:
 
       - name: Update version in script
         run: |
-          sed -i "s/VERSION=\"[^\"]*\"/VERSION=\"${{ steps.increment_version.outputs.new_version }}\"/" script.sh
+          sed -i "s/VERSION=\"[^\"]*\"/VERSION=\"${{ steps.increment_version.outputs.new_version }}\"/" archi_install.sh
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
-          git add script.sh
+          git add archi_install.sh
           git commit -m "Bump version to ${{ steps.increment_version.outputs.new_version }}"
           git push
 
