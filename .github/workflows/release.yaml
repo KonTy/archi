@@ -38,7 +38,12 @@ jobs:
           git config --global user.email 'github-actions@github.com'
           git add archi_install.sh
           git commit -m "Bump version to ${{ steps.increment_version.outputs.new_version }}"
-          git push
+
+      - name: Push changes
+        env:
+          PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          git push https://$PAT@github.com/KonTy/archi.git
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
