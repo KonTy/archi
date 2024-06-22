@@ -1,0 +1,53 @@
+name: Release Script
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get current version
+        id: get_version
+        run: |
+          VERSION=$(grep -Po 'VERSION="\K[^"]+' script.sh)
+          echo "::set-output name=version::$VERSION"
+
+      - name: Increment version
+        id: increment_version
+        run: |
+          IFS='.' read -r -a version_parts <<< "${{ steps.get_version.outputs.version }}"
+          major=${version_parts[0]:1}
+          minor=${version_parts[1]}
+          patch=${version_parts[2]}
+          new_patch=$((patch + 1))
+          new_version="v$major.$minor.$new_patch"
+          echo "::set-output name=new_version::$new_version"
+          echo "New version: $new_version"
+
+      - name: Update version in script
+        run: |
+          sed -i "s/VERSION=\"[^\"]*\"/VERSION=\"${{ steps.increment_version.outputs.new_version }}\"/" script.sh
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git add script.sh
+          git commit -m "Bump version to ${{ steps.increment_version.outputs.new_version }}"
+          git push
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.increment_version.outputs.new_version }}
+          release_name: Release ${{ steps.increment_version.outputs.new_version }}
+          body: |
+            New release of the script.
+          draft: false
+          prerelease: false
