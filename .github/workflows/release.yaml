@@ -16,7 +16,7 @@ jobs:
       - name: Get current version
         id: get_version
         run: |
-          VERSION=$(grep -Po 'VERSION="\K[^"]+' script.sh)
+          VERSION=$(grep -Po 'VERSION="\K[^"]+' archi_install.sh)
           echo "::set-output name=version::$VERSION"
 
       - name: Increment version
