@@ -16,7 +16,7 @@ jobs:
       - name: Get current version
         id: get_version
         run: |
-          VERSION=$(grep -Po 'VERSION="\K[^"]+' script.sh)
+          VERSION=$(grep -Po 'VERSION="\K[^"]+' archi_install.sh)
           echo "::set-output name=version::$VERSION"
 
       - name: Increment version
@@ -33,17 +33,22 @@ jobs:
 
       - name: Update version in script
         run: |
-          sed -i "s/VERSION=\"[^\"]*\"/VERSION=\"${{ steps.increment_version.outputs.new_version }}\"/" script.sh
+          sed -i "s/VERSION=\"[^\"]*\"/VERSION=\"${{ steps.increment_version.outputs.new_version }}\"/" archi_install.sh
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
-          git add script.sh
+          git add archi_install.sh
           git commit -m "Bump version to ${{ steps.increment_version.outputs.new_version }}"
-          git push
+
+      - name: Push changes
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          git push https://$GH_TOKEN@github.com/KonTy/archi.git
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         with:
           tag_name: ${{ steps.increment_version.outputs.new_version }}
           release_name: Release ${{ steps.increment_version.outputs.new_version }}

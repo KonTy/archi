@@ -12,4 +12,4 @@ echo "Change directory to ~/$SCRIPTHOME_DIR"
 cd $HOME/archi
 
 echo "Current directory is $(pwd) Executing Script"
-exec ./run_archi.sh
+exec ./archi_install.sh
