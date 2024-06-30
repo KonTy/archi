@@ -219,6 +219,13 @@ install_arch_surface_support() {
 }
 
 main() {
+    sudo pacman-key --init
+    sudo pacman-key --populate archlinux
+
+    sudo pacman -Syu
+
+    sudo pacman -Ss sbsigntool
+
     install_yay
     if is_surface; then
         echo "Microsoft Surface device detected. Proceeding with Surface support installation for Arch Linux..."
