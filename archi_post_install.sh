@@ -18,8 +18,13 @@ SecureBoot.initialize() {
 
 # Function to install required packages
 SecureBoot.install_dependencies() {
-    echo "Installing necessary packages including efitools, sbsigntool, openssl, and mokutil..."
-    sudo pacman -S --needed --noconfirm efitools sbsigntool openssl mokutil
+    echo "Installing necessary packages including efitools, openssl, and mokutil..."
+    sudo pacman -S --needed --noconfirm efitools openssl mokutil
+  
+
+    echo "Installing sbsigntool"
+    sudo pacman -S --needed --noconfirm sbsigntool
+
     echo "Packages installed."
 }
 
@@ -223,8 +228,6 @@ main() {
     sudo pacman-key --populate archlinux
 
     sudo pacman -Syu
-
-    sudo pacman -Ss sbsigntool
 
     install_yay
     if is_surface; then
