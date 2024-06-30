@@ -21,9 +21,8 @@ SecureBoot.install_dependencies() {
     echo "Installing necessary packages including efitools, openssl, and mokutil..."
     sudo pacman -S --needed --noconfirm efitools openssl mokutil
   
-
     echo "Installing sbsigntool"
-    sudo pacman -S --needed --noconfirm sbsigntool
+    sudo pacman -S --needed --noconfirm sbsigntools
 
     echo "Packages installed."
 }
