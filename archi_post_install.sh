@@ -30,7 +30,7 @@ SecureBoot.install_dependencies() {
 # Function to generate keys using OpenSSL
 SecureBoot.generate_keys() {
     echo "Generating Secure Boot keys..."
-    mkdir -p "${SecureBoot[cert_dir]}"
+    sudo mkdir -p "${SecureBoot[cert_dir]}"
 
     openssl req -new -x509 -newkey rsa:2048 -keyout "${SecureBoot[cert_dir]}/DB.key" -out "${SecureBoot[cert_dir]}/DB.crt" -nodes -subj "/CN=DB Key/"
     openssl req -new -x509 -newkey rsa:2048 -keyout "${SecureBoot[cert_dir]}/KEK.key" -out "${SecureBoot[cert_dir]}/KEK.crt" -nodes -subj "/CN=KEK Key/"
@@ -125,8 +125,22 @@ SecureBoot.print_mok_instructions() {
     echo
 }
 
+# Function to prompt and confirm Setup Mode
+SecureBoot.confirm_setup_mode() {
+    echo "Before proceeding, please ensure you have switched your system to Setup Mode in the BIOS/UEFI settings."
+    read -p "Have you switched to Setup Mode? (y/n): " choice
+    case "$choice" in
+        y|Y ) ;;
+        * ) echo "Please switch to Setup Mode and rerun the script."; exit 1;;
+    esac
+}
+
+
 # Main function to execute the setup
 SecureBoot.run() {
+
+    SecureBoot.confirm_setup_mode
+    
     SecureBoot.initialize
     echo "Initialized SecureBoot properties."
 
@@ -229,6 +243,7 @@ main() {
     sudo pacman -Syu
 
     install_yay
+
     if is_surface; then
         echo "Microsoft Surface device detected. Proceeding with Surface support installation for Arch Linux..."
         install_arch_surface_support
