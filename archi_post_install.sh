@@ -2,6 +2,7 @@
 # set -e command in a bash script is used to make the script exit immediately if any 
 # command within the script returns a non-zero exit status
 set -e
+#!/bin/bash
 
 # Define an associative array to simulate class properties
 declare -A SecureBoot
@@ -18,19 +19,14 @@ SecureBoot.initialize() {
 
 # Function to install required packages
 SecureBoot.install_dependencies() {
-    echo "Installing necessary packages including efitools, openssl, and mokutil..."
-    sudo pacman -S --needed --noconfirm efitools openssl mokutil
-  
-    echo "Installing sbsigntool"
-    sudo pacman -S --needed --noconfirm sbsigntools
-
-    echo "Packages installed."
+    # Install necessary packages including mokutil
+    sudo pacman -S --needed --noconfirm efitools sbsigntool openssl mokutil
 }
 
 # Function to generate keys using OpenSSL
 SecureBoot.generate_keys() {
-    echo "Generating Secure Boot keys..."
-    sudo mkdir -p "${SecureBoot[cert_dir]}"
+    # Generate Secure Boot keys
+    mkdir -p "${SecureBoot[cert_dir]}"
 
     openssl req -new -x509 -newkey rsa:2048 -keyout "${SecureBoot[cert_dir]}/DB.key" -out "${SecureBoot[cert_dir]}/DB.crt" -nodes -subj "/CN=DB Key/"
     openssl req -new -x509 -newkey rsa:2048 -keyout "${SecureBoot[cert_dir]}/KEK.key" -out "${SecureBoot[cert_dir]}/KEK.crt" -nodes -subj "/CN=KEK Key/"
@@ -46,23 +42,21 @@ SecureBoot.generate_keys() {
 
 # Function to enroll keys in UEFI firmware
 SecureBoot.enroll_keys() {
-    echo "Enrolling keys in UEFI firmware..."
-    sudo efi-updatevar -e -f "${SecureBoot[cert_dir]}/PK.cer" PK
-    sudo efi-updatevar -e -f "${SecureBoot[cert_dir]}/KEK.cer" KEK
-    sudo efi-updatevar -e -f "${SecureBoot[cert_dir]}/DB.cer" db
+    sudo efi-updatevar -e -f "${SecureBoot[cert_dir]}/PK.cer" PK || { echo "Error: Failed to enroll PK key."; exit 1; }
+    sudo efi-updatevar -e -f "${SecureBoot[cert_dir]}/KEK.cer" KEK || { echo "Error: Failed to enroll KEK key."; exit 1; }
+    sudo efi-updatevar -e -f "${SecureBoot[cert_dir]}/DB.cer" db || { echo "Error: Failed to enroll DB key."; exit 1; }
     echo "Keys enrolled in UEFI firmware."
 }
 
 # Function to enroll MOK (Machine Owner Key)
 SecureBoot.enroll_mok() {
-    echo "Enrolling MOK (Machine Owner Key)..."
     # Generate a MOK key
     openssl req -new -x509 -newkey rsa:2048 -keyout "${SecureBoot[cert_dir]}/MOK.key" -out "${SecureBoot[cert_dir]}/MOK.crt" -nodes -subj "/CN=MOK Key/"
     openssl x509 -in "${SecureBoot[cert_dir]}/MOK.crt" -outform DER -out "${SecureBoot[cert_dir]}/MOK.cer"
 
     # Enroll MOK
     echo "Please enter a password for the MOK enrollment process:"
-    sudo mokutil --import "${SecureBoot[cert_dir]}/MOK.cer"
+    sudo mokutil --import "${SecureBoot[cert_dir]}/MOK.cer" || { echo "Error: Failed to enroll MOK key."; exit 1; }
 
     echo "After rebooting, follow the instructions to enroll the MOK in the firmware."
 
@@ -81,7 +75,6 @@ SecureBoot.enroll_mok() {
 
 # Function to sign bootloader and kernel
 SecureBoot.sign_files() {
-    echo "Signing bootloader and kernel..."
     sbsign --key "${SecureBoot[cert_dir]}/DB.key" --cert "${SecureBoot[cert_dir]}/DB.crt" --output "${SecureBoot[bootloader]}.signed" "${SecureBoot[bootloader]}"
     sbsign --key "${SecureBoot[cert_dir]}/DB.key" --cert "${SecureBoot[cert_dir]}/DB.crt" --output "${SecureBoot[kernel]}.signed" "${SecureBoot[kernel]}"
     sbsign --key "${SecureBoot[cert_dir]}/DB.key" --cert "${SecureBoot[cert_dir]}/DB.crt" --output "${SecureBoot[initramfs]}.signed" "${SecureBoot[initramfs]}"
@@ -96,7 +89,6 @@ SecureBoot.sign_files() {
 
 # Function to update GRUB configuration to use signed kernel
 SecureBoot.update_grub_config() {
-    echo "Updating GRUB configuration to use signed kernel..."
     # Backup existing GRUB config
     sudo cp "${SecureBoot[grub_cfg]}" "${SecureBoot[grub_cfg]}.bak"
 
@@ -135,37 +127,19 @@ SecureBoot.confirm_setup_mode() {
     esac
 }
 
-
 # Main function to execute the setup
 SecureBoot.run() {
-
     SecureBoot.confirm_setup_mode
-    
     SecureBoot.initialize
-    echo "Initialized SecureBoot properties."
-
     SecureBoot.install_dependencies
-    echo "Installed necessary packages."
-
     SecureBoot.generate_keys
-    echo "Generated Secure Boot keys."
-
     SecureBoot.enroll_keys
-    echo "Enrolled keys in UEFI firmware."
-
     SecureBoot.enroll_mok
-    echo "Enrolled MOK (Machine Owner Key) and signed bootloader and kernel."
-
     SecureBoot.sign_files
-    echo "Signed bootloader and kernel with DB keys."
-
     SecureBoot.update_grub_config
-    echo "Updated GRUB configuration to use signed kernel."
-
     SecureBoot.print_mok_instructions
-    echo "Printed MOK enrollment instructions."
 
-    echo "Secure Boot setup completed. Please reboot your system to apply the changes."
+    echo "Secure Boot setup completed successfully."
 }
 
 
