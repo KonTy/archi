@@ -2,7 +2,11 @@
 # set -e command in a bash script is used to make the script exit immediately if any 
 # command within the script returns a non-zero exit status
 set -e
-#!/bin/bash
+
+# run by bash <(curl -s https://gitlab.com/stephan-raabe/dotfiles/-/raw/main/setup.sh)
+
+
+
 
 # Define an associative array to simulate class properties
 declare -A SecureBoot
@@ -210,20 +214,328 @@ install_arch_surface_support() {
     echo "Installation complete. Please reboot your system."
 }
 
+install_video_drivers() {
+    # Detect VGA compatible controllers
+    vga_controllers=$(lspci | grep VGA)
+
+    # Check if there are any VGA controllers found
+    if [[ -z "$vga_controllers" ]]; then
+        echo "No VGA compatible controllers found."
+        return 1
+    fi
+
+    # Install drivers based on detected controllers
+    if echo "$vga_controllers" | grep -qi "NVIDIA"; then
+        echo "Detected NVIDIA VGA controller. Installing NVIDIA drivers..."
+        sudo pacman -S nvidia
+    fi
+
+    if echo "$vga_controllers" | grep -qi "AMD"; then
+        echo "Detected AMD VGA controller. Installing AMD drivers..."
+        sudo pacman -S xf86-video-amdgpu mesa
+    fi
+
+    if echo "$vga_controllers" | grep -qi "Intel"; then
+        echo "Detected Intel VGA controller. Installing Intel drivers..."
+        sudo pacman -S xf86-video-intel mesa
+    fi
+
+    # Additional handling for hybrid graphics (NVIDIA Optimus)
+    # Install bumblebee for NVIDIA Optimus laptops
+    if lspci | grep -qi "VGA compatible controller: NVIDIA"; then
+        echo "Detected NVIDIA GPU for hybrid graphics (NVIDIA Optimus). Installing Bumblebee..."
+        sudo pacman -S bumblebee
+    fi
+
+    # Additional configurations as needed (Xorg, etc.)
+    # Add your additional configuration steps here if required
+
+    echo "Driver installation complete."
+}
+# Class-like structure for Hyprland setup
+HyprlandSetup() {
+    # Variables
+    local config_file="$HOME/.config/hypr/hyprland.conf"
+    local desktop_file="/usr/share/wayland-sessions/hyprland.desktop"
+    local config_dir="$HOME/.config/hypr"
+    local config_file="$config_dir/hyprland.conf"
+
+    # Initialize function
+    initialize() {
+        # Ensure the configuration directory exists
+        mkdir -p "$(dirname "$config_file")"
+    }
+
+    # Install Hyprland and wlr-randr
+    install() {
+        echo "Installing Hyprland and wlr-randr..."
+        sudo pacman -S hyprland wlr-randr wofi
+        echo "Hyprland and wlr-randr installation complete."
+    }
+
+    # Detect the highest resolution supported by the primary monitor using wlr-randr
+    detect_highest_resolution() {
+        # https://wiki.hyprland.org/Configuring/Multi-GPU/
+        highest_resolution=$(wlr-randr | grep '^\s\+[0-9]\+x[0-9]\+' | awk '{print $1}' | sort -r | head -n 1)
+        monitor=$(wlr-randr | grep '^\s*' | grep -B1 "$highest_resolution" | head -n 1 | awk '{print $1}')
+        
+        if [[ -z "$highest_resolution" || -z "$monitor" ]]; then
+            echo "Could not detect the highest resolution."
+            return 1
+        fi
+
+        echo "Detected highest resolution: $highest_resolution for monitor: $monitor"
+        echo "$monitor $highest_resolution"
+    }
+
+    # Configure highest resolution in Hyprland
+    configure_highest_resolution() {
+        # Detect the highest resolution 
+        # show all monitors (https://wiki.hyprland.org/Configuring/Monitors/): hyprctl monitors all
+        resolution_info=$(detect_highest_resolution)
+        if [[ $? -ne 0 ]]; then
+            echo "Failed to detect highest resolution. Exiting."
+            return 1
+        fi
+
+        monitor=$(echo "$resolution_info" | awk '{print $1}')
+        resolution=$(echo "$resolution_info" | awk '{print $2}')
+
+        # Add the highest resolution setting if it does not already exist
+        if ! grep -q "^monitor = $monitor, $resolution" "$config_file"; then
+            echo "Setting highest resolution in Hyprland configuration..."
+            echo "monitor = $monitor, $resolution@60, 0x0" >> "$config_file"
+        else
+            echo "Highest resolution already set in Hyprland configuration."
+        fi
+    }
+
+    # Create .desktop file and set Hyprland as default session
+    configure_default_session() {
+        # Create the .desktop file for Hyprland
+        echo "Creating Hyprland .desktop file..."
+        sudo tee "$desktop_file" > /dev/null <<EOL
+[Desktop Entry]
+Name=Hyprland
+Comment=Hyprland Session
+Exec=Hyprland
+Type=Application
+DesktopNames=Hyprland
+EOL
+
+        echo "Hyprland .desktop file created."
+
+        # Set Hyprland as the default session for SDDM, LightDM, or GDM
+        if [ -d "/etc/sddm.conf.d" ]; then
+            echo "Configuring SDDM to use Hyprland as default session..."
+            sudo tee /etc/sddm.conf.d/default.conf > /dev/null <<EOL
+[Autologin]
+Session=hyprland
+EOL
+        elif [ -d "/etc/lightdm" ]; then
+            echo "Configuring LightDM to use Hyprland as default session..."
+            sudo tee /etc/lightdm/lightdm.conf.d/50-hyprland.conf > /dev/null <<EOL
+[Seat:*]
+user-session=hyprland
+EOL
+        elif [ -d "/etc/gdm" ]; then
+            echo "Configuring GDM to use Hyprland as default session..."
+            sudo ln -sf "$desktop_file" /usr/share/wayland-sessions/default.desktop
+            sudo tee /etc/gdm/custom.conf > /dev/null <<EOL
+[daemon]
+WaylandSession=hyprland
+EOL
+        else
+            echo "No supported display manager found. Please configure your display manager manually to use Hyprland."
+        fi
+    }
+
+
+    # Function to add or modify key binding for showing all bindings
+    add_show_bindings_key() {
+        local key_combination="Mod4+slash"  # Modify as needed
+
+        # Check if the config directory exists, create if not
+        if [ ! -d "$config_dir" ]; then
+            mkdir -p "$config_dir"
+        fi
+
+    # Create or append to the bindings script using a heredoc
+    cat > "$config_dir/show_bindings.sh" <<EOF
+#!/bin/bash
+
+# Define the path to the Hyprland configuration file
+CONFIG_FILE="$config_file"
+
+# Extract key bindings from the configuration file
+bindings=\$(grep -E "bind[ ]*=" "\$CONFIG_FILE")
+
+# Display key bindings using wofi
+wofi --show dmenu --prompt "Hyprland Key Bindings" <<< "\$bindings"
+EOF
+
+        # Make the script executable
+        chmod +x "$config_dir/show_bindings.sh"
+
+        # Check if the key combination already exists in the config file
+        if grep -qE "bind[ ]*=[ ]*${key_combination}" "$config_file"; then
+            # If exists, comment out the old binding
+            sed -i "/bind[ ]*=[ ]*${key_combination}/ s/^/#/" "$config_file"
+        fi
+
+        # Append the new binding to show all bindings
+        echo "bind = $key_combination exec $config_dir/show_bindings.sh" >> "$config_file"
+
+        echo "Key binding for showing all bindings added or updated."
+        echo "Restart Hyprland or reload its configuration for changes to take effect."
+    }
+
+    # Function to update or add a setting in the configuration file
+    update_or_add_setting() {
+        local setting_name="$1"
+        local setting_value="$2"
+        
+        if grep -q "^$setting_name =" "$config_file"; then
+            sed -i "s/^$setting_name =.*/$setting_name = $setting_value/" "$config_file"
+            echo "Updated $setting_name in Hyprland configuration."
+        else
+            echo "$setting_name = $setting_value" >> "$config_file"
+            echo "Added $setting_name to Hyprland configuration."
+        fi
+    }
+
+    # Configure Hyprland with specified settings if they don't already exist
+    configure_hyprland() {
+        # Path to Hyprland configuration file
+        # local config_file="$HOME/.config/hypr/hyprland.conf"
+
+        # Ensure the configuration directory exists
+        mkdir -p "$(dirname "$config_file")"
+
+        # Remove the autogenerated line to eliminate the yellow warning if it exists
+        if grep -q "^autogenerated=1" "$config_file"; then
+            echo "Removing autogenerated=1 from Hyprland configuration..."
+            sed -i '/^autogenerated=1/d' "$config_file"
+        fi
+
+        # Update or add settings to Hyprland configuration file
+        echo "Configuring Hyprland settings in $config_file..."
+
+        # Function to update or add a setting in the configuration file
+        update_or_add_setting() {
+            local setting_name="$1"
+            local setting_value="$2"
+            
+            if grep -q "^$setting_name =" "$config_file"; then
+                sed -i "s/^$setting_name =.*/$setting_name = $setting_value/" "$config_file"
+                echo "Updated $setting_name in Hyprland configuration."
+            else
+                echo "$setting_name = $setting_value" >> "$config_file"
+                echo "Added $setting_name to Hyprland configuration."
+            fi
+        }
+
+       # Example settings to configure
+        update_or_add_setting "sensitivity" "1.0"
+        update_or_add_setting "border_size" "3"
+        update_or_add_setting "gaps_in" "2"
+        update_or_add_setting "gaps_out" "2"
+        update_or_add_setting "col.inactive_border" "gradient(0xff444444)"
+        update_or_add_setting "col.active_border" "gradient(0xffffffff)"
+        update_or_add_setting "col.nogroup_border" "gradient(0xffffaaff)"
+        update_or_add_setting "col.nogroup_border_active" "gradient(0xffff00ff)"
+        update_or_add_setting "layout" "dwindle"
+        update_or_add_setting "no_focus_fallback" "false"
+        update_or_add_setting "apply_sens_to_raw" "false"
+        update_or_add_setting "resize_on_border" "false"
+        update_or_add_setting "extend_border_grab_area" "15"
+        update_or_add_setting "hover_icon_on_border" "true"
+        update_or_add_setting "allow_tearing" "false"
+        update_or_add_setting "resize_corner" "0"
+
+        # Example decoration settings
+        update_or_add_setting "rounding" "0"
+        update_or_add_setting "active_opacity" "1.0"
+        update_or_add_setting "inactive_opacity" "1.0"
+        update_or_add_setting "fullscreen_opacity" "1.0"
+        update_or_add_setting "drop_shadow" "true"
+        update_or_add_setting "shadow_range" "4"
+        update_or_add_setting "shadow_render_power" "3"
+        update_or_add_setting "shadow_ignore_window" "true"
+        update_or_add_setting "col.shadow" "color(0xee1a1a1a)"
+        update_or_add_setting "shadow_offset" "[0, 0]"
+        update_or_add_setting "shadow_scale" "1.0"
+        update_or_add_setting "dim_inactive" "false"
+        update_or_add_setting "dim_strength" "0.5"
+        update_or_add_setting "dim_special" "0.2"
+        update_or_add_setting "dim_around" "0.4"
+        update_or_add_setting "screen_shader" "[[Empty]]"
+
+        # Example blur settings
+        update_or_add_setting "decoration:blur.enabled" "true"
+        update_or_add_setting "decoration:blur.size" "8"
+        update_or_add_setting "decoration:blur.passes" "1"
+        update_or_add_setting "decoration:blur.ignore_opacity" "false"
+        update_or_add_setting "decoration:blur.new_optimizations" "true"
+        update_or_add_setting "decoration:blur.xray" "false"
+        update_or_add_setting "decoration:blur.noise" "0.0117"
+        update_or_add_setting "decoration:blur.contrast" "0.8916"
+        update_or_add_setting "decoration:blur.brightness" "0.8172"
+        update_or_add_setting "decoration:blur.vibrancy" "0.1696"
+        update_or_add_setting "decoration:blur.vibrancy_darkness" "0.0"
+        update_or_add_setting "decoration:blur.special" "false"
+        update_or_add_setting "decoration:blur.popups" "false"
+        update_or_add_setting "decoration:blur.popups_ignorealpha" "0.2"
+
+
+        echo "Hyprland configuration updated."
+    }
+    # Run all setup functions
+    run() {
+        initialize
+        install
+        configure_highest_resolution
+        configure_default_session
+        configure_hyprland
+        add_show_bindings_key
+        echo "Hyprland setup complete."
+    }
+
+    # Expose functions
+    case "$1" in
+        initialize) initialize ;;
+        install) install ;;
+        detect_highest_resolution) detect_highest_resolution ;;
+        configure_highest_resolution) configure_highest_resolution ;;
+        configure_default_session) configure_default_session ;;
+        configure_hyprland) configure_hyprland ;;
+        run) run ;;
+        *) echo "Invalid command. Use initialize, install, detect_highest_resolution, configure_highest_resolution, configure_default_session, configure_hyprland, or run." ;;
+    esac
+}
+
+
+
 main() {
     sudo pacman-key --init
     sudo pacman-key --populate archlinux
 
     sudo pacman -Syu
-
     install_yay
+
+    install_video_drivers
 
     if is_surface; then
         echo "Microsoft Surface device detected. Proceeding with Surface support installation for Arch Linux..."
         install_arch_surface_support
     fi
+    
+    HyprlandSetup run
 
-    SecureBoot.run
+    sudo pacman -S keepassxc kitty
+
+    # never got this to work more debuggin needed
+    # SecureBoot.run
 }
 
 main
