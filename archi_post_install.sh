@@ -151,7 +151,7 @@ SecureBoot.run() {
 install_yay() {
     if ! command -v yay &> /dev/null; then
         echo "yay not found, installing yay..."
-        sudo pacman -S --needed git base-devel
+        sudo pacman -S --needed --noconfirm git base-devel
         git clone https://aur.archlinux.org/yay.git
         cd yay
         makepkg -si
@@ -189,20 +189,20 @@ install_arch_surface_support() {
     sudo pacman -Syu
     
     # Install the linux-surface kernel and its dependencies
-    sudo pacman -S linux-surface linux-surface-headers iptsd
+    sudo pacman -S --needed --noconfirm linux-surface linux-surface-headers iptsd
     
     # Install additional firmware package for WiFi if needed
     local model=$(cat /sys/devices/virtual/dmi/id/product_name)
     case $model in
         *Surface*Pro*4|*Surface*Pro*5|*Surface*Pro*6|*Surface*Book*1|*Surface*Book*2|*Surface*Laptop*1|*Surface*Laptop*2)
-            sudo pacman -S linux-firmware-marvell
+            sudo pacman -S --needed --noconfirm linux-firmware-marvell
             ;;
     esac
     
     # Install the secure boot key if secure boot is set up
     read -p "Have you set up secure boot for Arch via SHIM? (y/N): " secureboot_setup
     if [[ $secureboot_setup =~ ^[Yy]$ ]]; then
-        sudo pacman -S linux-surface-secureboot-mok
+        sudo pacman -S --needed --noconfirm linux-surface-secureboot-mok
         echo "Please reboot and enroll the key by following the on-screen instructions. Use the password 'surface'."
     else
         echo "Secure boot not set up. Skipping secure boot key installation."
@@ -215,7 +215,7 @@ install_arch_surface_support() {
 }
 
 install_video_drivers() {
-    # Detect VGA compatible controllers
+    echo "Detect VGA compatible controllers..."
     vga_controllers=$(lspci | grep VGA)
 
     # Check if there are any VGA controllers found
@@ -227,30 +227,30 @@ install_video_drivers() {
     # Install drivers based on detected controllers
     if echo "$vga_controllers" | grep -qi "NVIDIA"; then
         echo "Detected NVIDIA VGA controller. Installing NVIDIA drivers..."
-        sudo pacman -S nvidia
+        sudo pacman -S --needed --noconfirm nvidia
     fi
 
     if echo "$vga_controllers" | grep -qi "AMD"; then
         echo "Detected AMD VGA controller. Installing AMD drivers..."
-        sudo pacman -S xf86-video-amdgpu mesa
+        sudo pacman -S --needed --noconfirm xf86-video-amdgpu mesa
     fi
 
     if echo "$vga_controllers" | grep -qi "Intel"; then
         echo "Detected Intel VGA controller. Installing Intel drivers..."
-        sudo pacman -S xf86-video-intel mesa
+        sudo pacman -S --needed --noconfirm xf86-video-intel mesa
     fi
 
     # Additional handling for hybrid graphics (NVIDIA Optimus)
     # Install bumblebee for NVIDIA Optimus laptops
-    if lspci | grep -qi "VGA compatible controller: NVIDIA"; then
-        echo "Detected NVIDIA GPU for hybrid graphics (NVIDIA Optimus). Installing Bumblebee..."
-        sudo pacman -S bumblebee
-    fi
+    # if lspci | grep -qi "VGA compatible controller: NVIDIA"; then
+    #     echo "Detected NVIDIA GPU for hybrid graphics (NVIDIA Optimus). Installing Bumblebee..."
+    #     sudo pacman -S bumblebee
+    # fi
 
     # Additional configurations as needed (Xorg, etc.)
     # Add your additional configuration steps here if required
 
-    echo "Driver installation complete."
+    echo "Video Driver installation complete."
 }
 # Class-like structure for Hyprland setup
 HyprlandSetup() {
@@ -262,19 +262,21 @@ HyprlandSetup() {
 
     # Initialize function
     initialize() {
-        # Ensure the configuration directory exists
+        echo "--> Setting up Hyprland"        
+        echo "Ensure the configuration directory exists"
         mkdir -p "$(dirname "$config_file")"
     }
 
     # Install Hyprland and wlr-randr
     install() {
         echo "Installing Hyprland and wlr-randr..."
-        sudo pacman -S hyprland wlr-randr wofi
+        sudo pacman -S --needed --noconfirm sddm hyprland wlr-randr wofi waybar
         echo "Hyprland and wlr-randr installation complete."
     }
 
     # Detect the highest resolution supported by the primary monitor using wlr-randr
     detect_highest_resolution() {
+        echo "Setting up resolution in Hyprland..."
         # https://wiki.hyprland.org/Configuring/Multi-GPU/
         highest_resolution=$(wlr-randr | grep '^\s\+[0-9]\+x[0-9]\+' | awk '{print $1}' | sort -r | head -n 1)
         monitor=$(wlr-randr | grep '^\s*' | grep -B1 "$highest_resolution" | head -n 1 | awk '{print $1}')
@@ -314,40 +316,42 @@ HyprlandSetup() {
     configure_default_session() {
         # Create the .desktop file for Hyprland
         echo "Creating Hyprland .desktop file..."
-        sudo tee "$desktop_file" > /dev/null <<EOL
-[Desktop Entry]
-Name=Hyprland
-Comment=Hyprland Session
-Exec=Hyprland
-Type=Application
-DesktopNames=Hyprland
-EOL
+        echo "Enabling SDDM service..."
+        sudo systemctl enable sddm.service --now
+    
+        echo "Setting up Hyprland wrapper script..."
+        mkdir -p ~/.local/bin
 
-        echo "Hyprland .desktop file created."
+        cat << 'EOF' > ~/.local/bin/wrappedhl
+#!/bin/sh
 
-        # Set Hyprland as the default session for SDDM, LightDM, or GDM
-        if [ -d "/etc/sddm.conf.d" ]; then
-            echo "Configuring SDDM to use Hyprland as default session..."
-            sudo tee /etc/sddm.conf.d/default.conf > /dev/null <<EOL
-[Autologin]
-Session=hyprland
-EOL
-        elif [ -d "/etc/lightdm" ]; then
-            echo "Configuring LightDM to use Hyprland as default session..."
-            sudo tee /etc/lightdm/lightdm.conf.d/50-hyprland.conf > /dev/null <<EOL
-[Seat:*]
-user-session=hyprland
-EOL
-        elif [ -d "/etc/gdm" ]; then
-            echo "Configuring GDM to use Hyprland as default session..."
-            sudo ln -sf "$desktop_file" /usr/share/wayland-sessions/default.desktop
-            sudo tee /etc/gdm/custom.conf > /dev/null <<EOL
-[daemon]
-WaylandSession=hyprland
-EOL
-        else
-            echo "No supported display manager found. Please configure your display manager manually to use Hyprland."
-        fi
+cd ~
+
+# Log WLR errors and logs to the hyprland log. Recommended
+export HYPRLAND_LOG_WLR=1
+
+# Tell XWayland to use a cursor theme
+export XCURSOR_THEME=Bibata-Modern-Classic
+
+# Set a cursor size
+export XCURSOR_SIZE=24
+
+# Example IME Support: fcitx
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+export SDL_IM_MODULE=fcitx
+export GLFW_IM_MODULE=ibus
+
+exec Hyprland
+EOF
+        chmod +x ~/.local/bin/wrappedhl
+        
+        echo "Creating custom Hyprland session file..."
+        sudo cp /usr/share/wayland-sessions/hyprland.desktop /usr/share/wayland-sessions/hyprland-wrapped.desktop
+        sudo sed -i 's|Exec=Hyprland|Exec=/home/$USER/.local/bin/wrappedhl|' /usr/share/wayland-sessions/hyprland-wrapped.desktop
+        
+        echo "Done creating custom Hyprland session file."
     }
 
 
@@ -514,6 +518,37 @@ EOF
     esac
 }
 
+#!/bin/bash
+
+function switch_to_sddm() {
+    
+    echo "Switching to sddm..."
+    # Array of known display managers
+    local display_managers=("gdm" "lightdm" "lxdm" "xorg-xdm")
+    
+    echo "Uninstalling known display managers..."
+    for dm in "${display_managers[@]}"; do
+        if pacman -Q $dm &> /dev/null; then
+            echo "Removing $dm..."
+            sudo pacman -Rns --noconfirm $dm
+        else
+            echo "$dm is not installed."
+        fi
+    done
+    
+    echo "Installing SDDM..."
+    sudo pacman -S --noconfirm sddm
+    
+    echo "Disabling any currently running display manager services..."
+    for dm in "${display_managers[@]}"; do
+        sudo systemctl disable $dm.service --now 2>/dev/null
+    done
+    
+    echo "Enabling SDDM service..."
+    sudo systemctl enable sddm.service --now
+    
+    echo "SDDM has been installed and set as the default display manager."
+}
 
 
 main() {
@@ -524,6 +559,7 @@ main() {
     install_yay
 
     install_video_drivers
+    switch_to_sddm
 
     if is_surface; then
         echo "Microsoft Surface device detected. Proceeding with Surface support installation for Arch Linux..."
@@ -532,7 +568,8 @@ main() {
     
     HyprlandSetup run
 
-    sudo pacman -S keepassxc kitty
+    sudo pacman -S --needed --noconfirm  keepassxc kitty
+    sudo yay -S --needed --noconfirm logseq-desktop
 
     # never got this to work more debuggin needed
     # SecureBoot.run
